@@ -1,0 +1,40 @@
+INFO:     Will watch for changes in these directories: ['C:\\Users\\utkar\\OneDrive\\Desktop\\SQLLLM']
+INFO:     Uvicorn running on http://0.0.0.0:8012 (Press CTRL+C to quit)
+INFO:     Started reloader process [22952] using WatchFiles
+INFO:     Started server process [16760]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:14692 - "GET /sql/tables HTTP/1.1" 200 OK
+INFO:     127.0.0.1:14738 - "POST /sql HTTP/1.1" 307 Temporary Redirect
+{'content': 'hello, tell me about people whose salary is >95%ile'}
+ERROR:api:Internal server error: 'NoneType' object is not subscriptable
+Traceback (most recent call last):
+  File "C:\Users\utkar\OneDrive\Desktop\SQLLLM\api.py", line 184, in get_response
+    data_message_content = f"Here is the data from your query:\nQuery: {sql_query}\n{s}\nResults: {execution_result[:25]}\n\nPlease provide deep insights on this data and further sql queries based on this data that can be used ahead."
+                                                                                                   ~~~~~~~~~~~~~~~~^^^^^
+TypeError: 'NoneType' object is not subscriptable
+{'id': 'chatcmpl-730', 'object': 'chat.completion', 'created': 1735582016, 'model': 'llama3.1', 'system_fingerprint': 'fp_ollama', 'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': 'SELECT * FROM employees AS e JOIN salaries AS s ON e.employee_id = s.employee_id WHERE CAST(s.salary as REAL) > ( SELECT PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY salary) FROM salaries );'}, 'finish_reason': 'stop'}], 'usage': {'prompt_tokens': 130, 'completion_tokens': 49, 'total_tokens': 179}}
+Executing Query: SELECT * FROM employees AS e JOIN salaries AS s ON e.employee_id = s.employee_id WHERE CAST(s.salary as REAL) > ( SELECT PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY salary) FROM salaries ) Completed
+{'id': 'chatcmpl-955', 'object': 'chat.completion', 'created': 1735582020, 'model': 'llama3.1', 'system_fingerprint': 'fp_ollama', 'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': 'SELECT e.employee_id, s.full_name, s.salary FROM employees e INNER JOIN salaries s ON e.employee_id = s.employee_id WHERE s.salary > ( SELECT PERCENTILE_SALARY(salary) * 0.95 FROM salaries );'}, 'finish_reason': 'stop'}], 'usage': {'prompt_tokens': 130, 'completion_tokens': 50, 'total_tokens': 180}}
+Executing Query: SELECT e.employee_id, s.full_name, s.salary FROM employees e INNER JOIN salaries s ON e.employee_id = s.employee_id WHERE s.salary > ( SELECT PERCENTILE_SALARY(salary) * 0.95 FROM salaries ); Completed
+INFO:     127.0.0.1:14738 - "POST /sql/ HTTP/1.1" 500 Internal Server Error
+INFO:     127.0.0.1:14747 - "POST /sql HTTP/1.1" 307 Temporary Redirect
+{'content': 'hello, tell me about people whose salary is >95%ile'}
+{'id': 'chatcmpl-965', 'object': 'chat.completion', 'created': 1735582037, 'model': 'llama3.1', 'system_fingerprint': 'fp_ollama', 'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': 'SELECT DISTINCT e.first_name, e.last_name \nFROM employees AS e\nJOIN salaries AS s ON e.employee_id = s.employee_id \nWHERE (s.salary * 100 / (SELECT MAX(salary) FROM salaries)) >95;'}, 'finish_reason': 'stop'}], 'usage': {'prompt_tokens': 130, 'completion_tokens': 49, 'total_tokens': 179}}
+Executing Query: SELECT DISTINCT e.first_name, e.last_name 
+FROM employees AS e
+JOIN salaries AS s ON e.employee_id = s.employee_id 
+WHERE (s.salary * 100 / (SELECT MAX(salary) FROM salaries)) >95 Completed
+Here is the data from your query:
+Query: SELECT DISTINCT e.first_name, e.last_name 
+FROM employees AS e
+JOIN salaries AS s ON e.employee_id = s.employee_id 
+WHERE (s.salary * 100 / (SELECT MAX(salary) FROM salaries)) >95
+Column : Dtype
+first_name: VAR_STRING
+last_name: VAR_STRING
+Results: [('Noah', 'Dar'), ('Chavvi', 'Gour'), ('Anya', 'Sahota'), ('Vamakshi', 'Sachdev'), ('Peter', 'Parsa'), ('Damini', 'Sengupta'), ('Rudra', 'Bandi'), ('Oeshi', 'Deshpande'), ('Ladli', 'Saran'), ('Aryan', 'Kara'), ('Gautami', 'Chahal'), ('Isaiah', 'Oommen'), ('Janani', 'Badami'), ('Niharika', 'Singh'), ('Waida', 'Sangha'), ('Frado', 'Ravi'), ('Ria', 'Mitra'), ('Zinal', 'Mani'), ('Anvi', 'Aurora'), ('Girik', 'Zacharia'), ('Mohammed', 'Rajagopal'), ('Amaira', 'Shenoy'), ('Abhiram', 'Suri'), ('Faras', 'Mittal'), ('Ekanta', 'Madan')]
+
+Please provide deep insights on this data and further sql queries based on this data that can be used ahead.
+{'id': 'chatcmpl-311', 'object': 'chat.completion', 'created': 1735582070, 'model': 'llama3.1', 'system_fingerprint': 'fp_ollama', 'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': "Based on the given SQL query results, I'll extract the insights related to employees with salaries above 95th percentile.\n\n**Unique Employees:** 15\n\nThe selected results give us a list of distinct employees who have a salary higher than 95% of the total salaries in the `salaries` table. Let's analyze this information:\n\n1. **Highest Frequency Employees:** I noticed that only one employee, 'Isaiah Oommen', is repeated more than once, indicating high occurrences above the 95th percentile in the salaries.\n\n2. **Multiple Departments Representatives:** Employees like 'Anya Sahota' and others might represent different departments or teams based on their `employee_id`.\n\n3. **Top Percentage Based On Name (Not Sorted By Salary):**\n   - `Isaiah` appears 8 times, with the highest number of occurrences.\n   - Noah is the next most frequent employee at 6 times.\n\n**Most interesting employees:**\n\n- **'Noah', 'Isaiah'** are found in this list both with highest frequency; and 8 out those are for Isaiah, who's also got top percentage of salary higher than any other person.\n- Anvi is found at least two times; in that 2 instances, there no change found in any of their salariy rates.\n\n\n\nFrom the original results where more detailed salaries were seen:\n\n\n```sql \n\nSELECT distinct s.salary , e.first_name\nFROM employees AS e\nJOIN salaries AS s ON e.employee_id = s.employee_id \nWHERE (s.salary * 100 / (SELECT MAX(salary) FROM salaries)) >95\n\n\nAnd if we check, there are people for whom more detailed information could have been returned from this query.\n\n\n\n```sql\n\n\nSELECT first_name ,last_name,salary\nFROM employees AS e\nJOIN salaries AS s ON e.employee_id = s.employee_id \nWHERE (s.salary * 100 / (SELECT MAX(salary) FROM salaries)) >95\n\n\n```"}, 'finish_reason': 'stop'}], 'usage': {'prompt_tokens': 348, 'completion_tokens': 400, 'total_tokens': 748}}
+INFO:     127.0.0.1:14747 - "POST /sql/ HTTP/1.1" 200 OK
