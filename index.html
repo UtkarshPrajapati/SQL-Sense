@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Assistant</title>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* Custom scrollbar for chat history */
+        #chat-history::-webkit-scrollbar {
+            width: 6px;
+        }
+        #chat-history::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        #chat-history::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        #chat-history::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* Ensure code blocks wrap */
+        pre {
+            white-space: pre-wrap;       /* Since CSS 2.1 */
+            white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
+            white-space: -pre-wrap;      /* Opera 4-6 */
+            white-space: -o-pre-wrap;    /* Opera 7 */
+            word-wrap: break-word;       /* Internet Explorer 5.5+ */
+        }
+        /* Style for generated tables */
+        .results-table {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0; /* Tailwind gray-200 */
+            border-radius: 0.375rem; /* rounded-md */
+            margin-top: 0.5rem; /* mt-2 */
+            margin-bottom: 1rem; /* mb-4 */
+        }
+        .results-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .results-table th, .results-table td {
+            border: 1px solid #e2e8f0; /* Tailwind gray-200 */
+            padding: 0.5rem 0.75rem; /* px-3 py-2 */
+            text-align: left;
+            font-size: 0.875rem; /* text-sm */
+        }
+        .results-table th {
+            background-color: #f8fafc; /* Tailwind slate-50 */
+            position: sticky; /* Keep headers visible */
+            top: 0;
+            z-index: 10;
+        }
+        .results-table tbody tr:nth-child(even) {
+            background-color: #f8fafc; /* Tailwind slate-50 */
+        }
+        .results-table tbody tr:hover {
+            background-color: #f1f5f9; /* Tailwind slate-100 */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans flex flex-col h-screen">
+
+    <header class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-4 shadow-md flex justify-between items-center">
+        <h1 class="text-xl font-bold flex items-center">
+            <i data-lucide="database" class="mr-2"></i> SQL Assistant
+        </h1>
+        <button id="schema-toggle-btn" class="bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg shadow text-sm transition duration-150 ease-in-out flex items-center">
+            <i data-lucide="schema" class="mr-1 h-4 w-4"></i> View Schema
+        </button>
+    </header>
+
+    <div id="schema-display" class="hidden bg-white p-4 border-b border-gray-200 max-h-48 overflow-y-auto text-sm">
+        <h3 class="font-semibold mb-2 text-gray-700">Database Schema:</h3>
+        <div id="schema-content" class="text-gray-600">
+            Loading schema... <i data-lucide="loader-2" class="animate-spin inline-block h-4 w-4"></i>
+        </div>
+         <button id="refresh-schema-btn" class="mt-2 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-2 rounded inline-flex items-center">
+            <i data-lucide="refresh-cw" class="mr-1 h-3 w-3"></i> Refresh
+        </button>
+    </div>
+
+    <main class="flex-1 overflow-hidden p-4 flex flex-col">
+        <div id="chat-history" class="flex-1 overflow-y-auto mb-4 space-y-4 p-4 bg-white rounded-lg shadow">
+            <div class="p-3 rounded-lg bg-blue-100 text-blue-800 max-w-xl mr-auto">
+                <p class="text-sm">Hello! Ask me something about the data (e.g., "Show me all employees in HR") or run a specific query using <code class="bg-blue-200 px-1 rounded">/run SELECT * FROM your_table LIMIT 10;</code>.</p>
+            </div>
+        </div>
+
+        <div class="mt-auto p-4 bg-white rounded-lg shadow">
+            <form id="chat-form" class="flex items-center space-x-3">
+                <input type="text" id="message-input" placeholder="Type your message or /run command..." class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-150 ease-in-out" required>
+                <button type="submit" id="send-button" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-lg shadow transition duration-150 ease-in-out flex items-center justify-center">
+                    <span id="send-text">Send</span>
+                    <i id="send-spinner" data-lucide="loader-2" class="animate-spin h-5 w-5 hidden"></i>
+                </button>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        const chatHistory = document.getElementById('chat-history');
+        const messageInput = document.getElementById('message-input');
+        const chatForm = document.getElementById('chat-form');
+        const sendButton = document.getElementById('send-button');
+        const sendText = document.getElementById('send-text');
+        const sendSpinner = document.getElementById('send-spinner');
+        const schemaDisplay = document.getElementById('schema-display');
+        const schemaContent = document.getElementById('schema-content');
+        const schemaToggleBtn = document.getElementById('schema-toggle-btn');
+        const refreshSchemaBtn = document.getElementById('refresh-schema-btn');
+
+        // --- Helper Functions ---
+
+        function escapeHtml(unsafe) {
+            if (typeof unsafe !== 'string') return unsafe;
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function renderMarkdown(text) {
+            // Basic sanitization (consider a more robust library like DOMPurify if needed)
+            const sanitizedHtml = marked.parse(text);
+            return sanitizedHtml;
+        }
+
+        function addMessageToChat(sender, messageHtml, messageType = 'info') {
+            const messageDiv = document.createElement('div');
+            let bgColor, textColor, alignment;
+
+            if (sender === 'user') {
+                bgColor = 'bg-indigo-100';
+                textColor = 'text-indigo-900';
+                alignment = 'ml-auto'; // Align user messages to the right
+            } else { // Assistant messages
+                bgColor = 'bg-gray-100';
+                textColor = 'text-gray-900';
+                alignment = 'mr-auto'; // Align assistant messages to the left
+
+                if (messageType === 'error') {
+                    bgColor = 'bg-red-100';
+                    textColor = 'text-red-800';
+                } else if (messageType === 'result') {
+                     bgColor = 'bg-green-50'; // Lighter green for results
+                     textColor = 'text-gray-900'; // Keep text dark for readability
+                }
+            }
+
+            messageDiv.className = `p-3 rounded-lg ${bgColor} ${textColor} max-w-3xl ${alignment} prose prose-sm max-w-none`; // Use prose for markdown styling
+            messageDiv.innerHTML = messageHtml; // Use innerHTML as we are injecting HTML
+            chatHistory.appendChild(messageDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight; // Scroll to bottom
+        }
+
+        function createTableHtml(columns, results) {
+            if (!results || results.length === 0) {
+                return '<p class="text-sm text-gray-600 italic">Query returned no results.</p>';
+            }
+            if (!columns || columns.length === 0) {
+                 return '<p class="text-sm text-red-600">Error: Missing column names for results.</p>';
+            }
+
+            let tableHtml = '<div class="results-table"><table><thead><tr>';
+            columns.forEach(col => {
+                tableHtml += `<th>${escapeHtml(col)}</th>`;
+            });
+            tableHtml += '</tr></thead><tbody>';
+
+            results.forEach(row => {
+                tableHtml += '<tr>';
+                // Ensure row is an array or tuple before iterating
+                if (Array.isArray(row) || row instanceof Object && typeof row[Symbol.iterator] === 'function') {
+                     // Check if columns length matches row length
+                     if (row.length !== columns.length) {
+                         console.warn("Row length mismatch:", row, "Columns:", columns);
+                         // Add placeholder cells or handle error appropriately
+                         tableHtml += `<td colspan="${columns.length}" class="text-red-500 italic">Data format error: row length mismatch</td>`;
+                     } else {
+                        row.forEach(cell => {
+                            // Handle null or undefined values gracefully
+                            const cellContent = cell === null || cell === undefined ? 'NULL' : cell;
+                            tableHtml += `<td>${escapeHtml(String(cellContent))}</td>`; // Convert all cells to string before escaping
+                        });
+                     }
+                } else {
+                     // Handle cases where row might not be iterable or is a single value
+                     console.warn("Unexpected row format:", row);
+                     tableHtml += `<td colspan="${columns.length}" class="text-red-500 italic">Data format error: unexpected row type</td>`;
+                }
+                tableHtml += '</tr>';
+            });
+
+            tableHtml += '</tbody></table></div>';
+            return tableHtml;
+        }
+
+        function setLoadingState(isLoading) {
+            if (isLoading) {
+                messageInput.disabled = true;
+                sendButton.disabled = true;
+                sendText.classList.add('hidden');
+                sendSpinner.classList.remove('hidden');
+            } else {
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                sendText.classList.remove('hidden');
+                sendSpinner.classList.add('hidden');
+                messageInput.focus(); // Refocus input after response
+            }
+        }
+
+        // --- API Interaction ---
+
+        async function fetchSchema(showLoading = true) {
+            if (showLoading) {
+                 schemaContent.innerHTML = 'Loading schema... <i data-lucide="loader-2" class="animate-spin inline-block h-4 w-4"></i>';
+                 lucide.createIcons(); // Re-render icons
+            }
+             try {
+                 const response = await fetch('/schema');
+                 if (!response.ok) {
+                     throw new Error(`HTTP error! status: ${response.status}`);
+                 }
+                 const data = await response.json();
+                 const schema = data.schema;
+
+                 if (schema && typeof schema === 'object' && !schema.error) {
+                     let schemaHtml = '<ul class="list-disc list-inside space-y-1">';
+                     for (const table in schema) {
+                         schemaHtml += `<li class="break-words"><strong class="font-medium">${escapeHtml(table)}</strong>: ${escapeHtml(schema[table].join(', '))}</li>`;
+                     }
+                     schemaHtml += '</ul>';
+                     schemaContent.innerHTML = schemaHtml;
+                 } else if (schema && schema.error) {
+                      schemaContent.innerHTML = `<p class="text-red-600">Error fetching schema: ${escapeHtml(schema.error.join(', '))}</p>`;
+                 }
+                  else {
+                     schemaContent.innerHTML = '<p class="text-gray-500">No tables found or unable to fetch schema.</p>';
+                 }
+             } catch (error) {
+                 console.error('Error fetching schema:', error);
+                 schemaContent.innerHTML = `<p class="text-red-600">Failed to load schema. ${error.message}</p>`;
+             }
+        }
+
+        async function sendMessage(message) {
+            addMessageToChat('user', `<p>${escapeHtml(message)}</p>`); // Display user message immediately
+            messageInput.value = ''; // Clear input
+            setLoadingState(true);
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message }),
+                });
+
+                if (!response.ok) {
+                     // Try to get error details from response body
+                     let errorDetail = `HTTP error! status: ${response.status}`;
+                     try {
+                         const errorData = await response.json();
+                         errorDetail = errorData.detail || errorData.content || errorDetail;
+                     } catch (e) { /* Ignore if body isn't JSON */ }
+                    throw new Error(errorDetail);
+                }
+
+                const data = await response.json();
+                let assistantMessageHtml = '';
+
+                if (data.type === 'result') {
+                    assistantMessageHtml += `<p class="font-semibold">Generated SQL:</p><pre><code class="language-sql">${escapeHtml(data.query || '')}</code></pre>`;
+                    assistantMessageHtml += createTableHtml(data.columns, data.results);
+                    if (data.insights) {
+                        // Render insights as Markdown
+                        assistantMessageHtml += renderMarkdown(data.insights);
+                    }
+                } else if (data.type === 'info') {
+                     // Render info potentially containing markdown (like code blocks)
+                     assistantMessageHtml += renderMarkdown(data.content);
+                } else if (data.type === 'error') {
+                     // Render error potentially containing markdown (like code blocks)
+                     assistantMessageHtml += renderMarkdown(data.content);
+                } else {
+                    assistantMessageHtml = `<p>${escapeHtml(String(data.content || 'Received unexpected response format.'))}</p>`;
+                }
+
+                addMessageToChat('assistant', assistantMessageHtml, data.type);
+
+            } catch (error) {
+                console.error('Error sending message:', error);
+                addMessageToChat('assistant', `<p>Sorry, I encountered an error: ${escapeHtml(error.message)}</p>`, 'error');
+            } finally {
+                setLoadingState(false);
+            }
+        }
+
+        // --- Event Listeners ---
+
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (message) {
+                sendMessage(message);
+            }
+        });
+
+        schemaToggleBtn.addEventListener('click', () => {
+            const isHidden = schemaDisplay.classList.contains('hidden');
+            if (isHidden) {
+                schemaDisplay.classList.remove('hidden');
+                schemaToggleBtn.innerHTML = '<i data-lucide="chevron-up" class="mr-1 h-4 w-4"></i> Hide Schema';
+                // Fetch schema only if it hasn't been loaded or if forced refresh
+                if (!schemaContent.innerHTML || schemaContent.innerHTML.includes('Loading') || schemaContent.innerHTML.includes('Failed')) {
+                   fetchSchema();
+                }
+            } else {
+                schemaDisplay.classList.add('hidden');
+                 schemaToggleBtn.innerHTML = '<i data-lucide="schema" class="mr-1 h-4 w-4"></i> View Schema';
+            }
+             lucide.createIcons(); // Re-render icons
+        });
+
+         refreshSchemaBtn.addEventListener('click', () => {
+             fetchSchema(true); // Force refresh with loading indicator
+         });
+
+        // --- Initial Setup ---
+
+        // Render initial icons
+        lucide.createIcons();
+
+        // Optionally fetch schema on load, but maybe better behind the button click
+        // fetchSchema();
+
+    </script>
+</body>
+</html>
