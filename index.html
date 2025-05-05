@@ -71,11 +71,14 @@
             <i data-lucide="database" class="mr-2"></i> DataFlow
         </h1>
         <button id="schema-toggle-btn" class="bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg shadow text-sm transition duration-150 ease-in-out flex items-center">
-            <i data-lucide="schema" class="mr-1 h-4 w-4"></i> View Schema
+            <i data-lucide="database" class="mr-1 h-4 w-4 text-indigo-600"></i> View Schema
         </button>
     </header>
 
-    <div id="schema-display" class="hidden bg-white p-4 border-b border-gray-200 max-h-48 overflow-y-auto text-sm">
+    <div id="schema-display"
+         class="bg-white border-gray-200 text-sm
+                overflow-hidden transition-all duration-300 ease-in-out
+                max-h-0 opacity-0 p-0 border-0">
         <h3 class="font-semibold mb-2 text-gray-700">Database Schema:</h3>
         <div id="schema-content" class="text-gray-600">
             Loading schema... <i data-lucide="loader-2" class="animate-spin inline-block h-4 w-4"></i>
@@ -352,19 +355,40 @@
         });
 
         schemaToggleBtn.addEventListener('click', () => {
-            const isHidden = schemaDisplay.classList.contains('hidden');
+            // Check if it's currently hidden (using max-height as indicator)
+            const isHidden = schemaDisplay.classList.contains('max-h-0');
+
             if (isHidden) {
-                schemaDisplay.classList.remove('hidden');
-                schemaToggleBtn.innerHTML = '<i data-lucide="chevron-up" class="mr-1 h-4 w-4"></i> Hide Schema';
+                // --- Show Schema ---
+                // Remove hidden state classes
+                schemaDisplay.classList.remove('max-h-0', 'opacity-0', 'p-0', 'border-0', 'overflow-hidden');
+                // Add shown state classes and overflow-y-auto
+                schemaDisplay.classList.add('max-h-48', 'opacity-100', 'p-4', 'border-b', 'overflow-y-auto');
+
+                // Update button content
+                schemaToggleBtn.innerHTML = '<i data-lucide="chevron-up" class="mr-1 h-4 w-4 text-indigo-600"></i> Hide Schema';
+
                 // Fetch schema only if it hasn't been loaded or if forced refresh
-                if (!schemaContent.innerHTML || schemaContent.innerHTML.includes('Loading') || schemaContent.innerHTML.includes('Failed')) {
+                // Check if content is empty, contains 'Loading', or 'Failed'
+                const needsFetching = !schemaContent.innerHTML.trim() ||
+                                     schemaContent.innerHTML.includes('Loading') ||
+                                     schemaContent.innerHTML.includes('Failed') ||
+                                     schemaContent.innerHTML.includes('unable to fetch');
+                if (needsFetching) {
                    fetchSchema();
                 }
             } else {
-                schemaDisplay.classList.add('hidden');
-                 schemaToggleBtn.innerHTML = '<i data-lucide="schema" class="mr-1 h-4 w-4"></i> View Schema';
+                // --- Hide Schema ---
+                 // Remove shown state classes
+                schemaDisplay.classList.remove('max-h-48', 'opacity-100', 'p-4', 'border-b', 'overflow-y-auto');
+                 // Add hidden state classes and overflow-hidden
+                schemaDisplay.classList.add('max-h-0', 'opacity-0', 'p-0', 'border-0', 'overflow-hidden');
+
+                // Update button content
+                schemaToggleBtn.innerHTML = '<i data-lucide="database" class="mr-1 h-4 w-4 text-indigo-600"></i> View Schema';
             }
-             lucide.createIcons(); // Re-render icons
+            // Re-render icons after changing innerHTML
+            lucide.createIcons();
         });
 
          refreshSchemaBtn.addEventListener('click', () => {
