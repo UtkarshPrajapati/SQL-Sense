@@ -2,6 +2,7 @@ import mysql.connector
 from faker import Faker
 import random
 from dotenv import load_dotenv
+import os
 
 load_dotenv()
 
@@ -12,7 +13,32 @@ MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "SQLLLM")
 
 fake = Faker('en_IN')
 
+def create_database_if_not_exist():
+    conn = None
+    cursor = None
+    try:
+        # Connect without specifying the database
+        conn = mysql.connector.connect(
+            host=MYSQL_HOST,
+            user=MYSQL_USER,
+            password=MYSQL_PASSWORD
+        )
+        cursor = conn.cursor()
+        cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{MYSQL_DATABASE}`")
+        print(f"Database '{MYSQL_DATABASE}' created or already exists.")
+    except mysql.connector.Error as err:
+        print(f"Error creating database: {err}")
+        # Exit if database creation fails, as subsequent steps will also fail
+        exit(1) 
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
 def create_tables_if_not_exist():
+    conn = None  # Initialize conn to None
+    cursor = None # Initialize cursor to None
     try:
         conn = mysql.connector.connect(
             host=MYSQL_HOST,
@@ -51,8 +77,10 @@ def create_tables_if_not_exist():
         print(f"Error: {err}")
 
     finally:
-        cursor.close()
-        conn.close()
+        if cursor: # Check if cursor was assigned
+            cursor.close()
+        if conn:   # Check if conn was assigned
+            conn.close()
 
 
 def generate_employee_data(num_records):
@@ -82,6 +110,8 @@ def generate_salary_data(employees):
 
 
 def insert_data_into_mysql(employees, salaries):
+    conn = None  # Initialize conn to None
+    cursor = None # Initialize cursor to None
     try:
         conn = mysql.connector.connect(
             host=MYSQL_HOST,
@@ -119,10 +149,14 @@ def insert_data_into_mysql(employees, salaries):
         print(f"Error: {err}")
 
     finally:
-        cursor.close()
-        conn.close()
+        if cursor: # Check if cursor was assigned
+            cursor.close()
+        if conn:   # Check if conn was assigned
+            conn.close()
 
 
+# --- Main script execution ---
+create_database_if_not_exist() # Call the new function first
 create_tables_if_not_exist()
 
 num_records = 1000
