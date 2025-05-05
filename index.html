@@ -220,6 +220,7 @@
 
         // --- API Interaction ---
 
+        // MODIFY fetchSchema to handle nested structure
         async function fetchSchema(showLoading = true) {
             if (showLoading) {
                  schemaContent.innerHTML = 'Loading schema... <i data-lucide="loader-2" class="animate-spin inline-block h-4 w-4"></i>';
@@ -228,27 +229,61 @@
              try {
                  const response = await fetch('/schema');
                  if (!response.ok) {
-                     throw new Error(`HTTP error! status: ${response.status}`);
+                    let errorMsg = `HTTP error! status: ${response.status}`;
+                    try { // Try to get more specific error from backend
+                        const errData = await response.json();
+                        // Adjust error path based on potential backend response structure
+                        errorMsg = errData.detail || (errData.error && errData.error.schema && Array.isArray(errData.error.schema) ? errData.error.schema.join(', ') : errorMsg);
+                    } catch(e) { /* ignore if body isn't json */ }
+                    throw new Error(errorMsg);
                  }
                  const data = await response.json();
-                 const schema = data.schema;
+                 const schema = data.schema; // Expected format: { dbName: { tableName: [columns] } } or { error: { schema: ["message"] } }
 
-                 if (schema && typeof schema === 'object' && !schema.error) {
-                     let schemaHtml = '<ul class="list-disc list-inside space-y-1">';
-                     for (const table in schema) {
-                         schemaHtml += `<li class="break-words"><strong class="font-medium">${escapeHtml(table)}</strong>: ${escapeHtml(schema[table].join(', '))}</li>`;
+                 // Check for the top-level error structure first
+                 if (schema && typeof schema === 'object' && schema.error && schema.error.schema && Array.isArray(schema.error.schema)) {
+                    schemaContent.innerHTML = `<p class="text-red-600">Error fetching schema: ${escapeHtml(schema.error.schema.join(', '))}</p>`;
+                 } else if (schema && typeof schema === 'object' && Object.keys(schema).length > 0) {
+                     let schemaHtml = '';
+                     // Iterate through Databases
+                     for (const dbName in schema) {
+                         if (schema.hasOwnProperty(dbName)) {
+                             schemaHtml += `<h4 class="font-semibold text-gray-800 mt-2 mb-1">Database: ${escapeHtml(dbName)}</h4>`;
+                             const tables = schema[dbName]; // This could be { tableName: [cols] } or { error: ["msg"] }
+
+                             // Check if the value for the dbName is an error object
+                             if (typeof tables === 'object' && tables !== null && tables.error && Array.isArray(tables.error)) {
+                                 schemaHtml += `<p class="text-sm text-red-500 pl-4 italic">Error fetching tables for this database: ${escapeHtml(tables.error.join(', '))}</p>`;
+                             }
+                             // Check if it's a valid tables object (and not the error object)
+                             else if (typeof tables === 'object' && tables !== null && !tables.error) {
+                                 if (Object.keys(tables).length > 0) {
+                                     schemaHtml += '<ul class="list-disc list-inside space-y-1 pl-4">';
+                                     // Iterate through Tables within the Database
+                                     for (const tableName in tables) {
+                                         if (tables.hasOwnProperty(tableName) && Array.isArray(tables[tableName])) {
+                                             schemaHtml += `<li class="break-words"><strong class="font-medium">${escapeHtml(tableName)}</strong>: ${escapeHtml(tables[tableName].join(', '))}</li>`;
+                                         }
+                                     }
+                                     schemaHtml += '</ul>';
+                                 } else {
+                                      schemaHtml += '<p class="text-sm text-gray-500 pl-4 italic">No tables found or accessible in this database.</p>';
+                                 }
+                             } else {
+                                  // Handle unexpected format for the database entry
+                                  schemaHtml += '<p class="text-sm text-gray-500 pl-4 italic">No table information available or unexpected format for this database.</p>';
+                             }
+                         }
                      }
-                     schemaHtml += '</ul>';
-                     schemaContent.innerHTML = schemaHtml;
-                 } else if (schema && schema.error) {
-                      schemaContent.innerHTML = `<p class="text-red-600">Error fetching schema: ${escapeHtml(schema.error.join(', '))}</p>`;
-                 }
-                  else {
-                     schemaContent.innerHTML = '<p class="text-gray-500">No tables found or unable to fetch schema.</p>';
+                     schemaContent.innerHTML = schemaHtml || '<p class="text-gray-500">No databases or tables found.</p>'; // Fallback if loop resulted in empty string
+                 } else {
+                     // This case handles empty schema object {} or other non-error, non-object types
+                     schemaContent.innerHTML = '<p class="text-gray-500">No databases or tables found, or unable to fetch schema.</p>';
                  }
              } catch (error) {
                  console.error('Error fetching schema:', error);
-                 schemaContent.innerHTML = `<p class="text-red-600">Failed to load schema. ${error.message}</p>`;
+                 // Ensure error.message is escaped
+                 schemaContent.innerHTML = `<p class="text-red-600">Failed to load schema. ${escapeHtml(error.message)}</p>`;
              }
         }
 

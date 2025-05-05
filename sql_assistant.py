@@ -39,23 +39,32 @@ logger = logging.getLogger(__name__)
 
 # --- Database Interaction ---
 
-def get_db_connection():
-    """Establishes a connection to the MySQL database."""
+# MODIFY get_db_connection to accept optional db_name
+def get_db_connection(db_name: Optional[str] = None):
+    """
+    Establishes a connection to the MySQL server.
+    Connects to a specific database if db_name is provided.
+    """
     try:
-        conn = mysql.connector.connect(
-            host=MYSQL_HOST,
-            user=MYSQL_USER,
-            password=MYSQL_PASSWORD,
-            database=MYSQL_DATABASE,
-            pool_name="mypool", # Optional: Use connection pooling
-            pool_size=5,       # Optional: Pool size
-            auth_plugin='mysql_native_password'
-        )
+        conn_params = {
+            'host': MYSQL_HOST,
+            'user': MYSQL_USER,
+            'password': MYSQL_PASSWORD,
+            'pool_name': "mypool", # Optional: Use connection pooling
+            'pool_size': 5,       # Optional: Pool size
+            'auth_plugin': 'mysql_native_password'
+        }
+        if db_name:
+            conn_params['database'] = db_name
+
+        conn = mysql.connector.connect(**conn_params)
+        logger.info(f"DB connection established (Database: {db_name or 'None'})")
         return conn
     except mysql.connector.Error as err:
-        logger.error(f"Database connection error: {err}")
-        raise HTTPException(status_code=500, detail=f"Database connection failed: {err}")
-
+        logger.error(f"Database connection error (connecting to {db_name or 'server'}): {err}")
+        # Don't raise HTTPException here directly, let caller handle None return or raise
+        # raise HTTPException(status_code=500, detail=f"Database connection failed: {err}")
+        return None # Return None on connection failure
 def execute_sql_query(query: str) -> Tuple[Optional[List[Tuple]], Optional[List[str]], Optional[str], int, Optional[str]]:
     """
     Executes an SQL query against the database.
@@ -74,8 +83,19 @@ def execute_sql_query(query: str) -> Tuple[Optional[List[Tuple]], Optional[List[
     logger.info(f"Executing Query: {query}")
     conn = None
     cursor = None
+    results: Optional[List[Tuple]] = None # Initialize results
+    column_names: Optional[List[str]] = None
+    column_types_str: Optional[str] = None
+
     try:
-        conn = get_db_connection()
+        # Connect WITHOUT specifying a default database
+        conn = get_db_connection(db_name=None)
+        if not conn:
+            # Handle connection failure
+            error_message = "SQL Error: Failed to connect to the database server for query execution."
+            logger.error(error_message)
+            return None, None, None, 3, error_message
+
         cursor = conn.cursor(buffered=True)
 
         # --- SECURITY WARNING ---
@@ -93,19 +113,25 @@ def execute_sql_query(query: str) -> Tuple[Optional[List[Tuple]], Optional[List[
             results = cursor.fetchmany(100) # Limit results for display
             if cursor.description: # Check if description exists (it might not for some SHOW commands)
                 column_names = [i[0] for i in cursor.description]
+                # Ensure FieldType is imported or defined
+                from mysql.connector.constants import FieldType
                 col_dtypes = [[i[0], FieldType.get_info(i[1])] for i in cursor.description]
                 column_types_str = 'Column : Dtype\n' + '\n'.join(f'{k}: {v}' for k, v in col_dtypes)
             else:
                 column_names = ["Result"] # Default column name if description is unavailable
                 column_types_str = "Column : Dtype\nResult: <unknown>"
                 # Adjust results structure if needed based on the specific SHOW command
-                if results and isinstance(results[0], (str, int, float)):
+                # Check if results is not None and not empty before accessing results[0]
+                if results and isinstance(results[0], (str, int, float, bytes)): # Added bytes type
                      results = [(r,) for r in results] # Wrap single values in tuples
 
+            # conn is guaranteed to be non-None here due to the check above
             conn.commit() # Necessary even for SELECT with some configurations/engines
+            # results is guaranteed to be a list (possibly empty) by fetchmany
             logger.info(f"Query executed successfully, fetched {len(results)} rows.")
             return results, column_names, column_types_str, 1, None
         else:
+            # conn is guaranteed to be non-None here
             conn.commit()
             logger.info("Non-SELECT/SHOW query executed successfully.")
             return None, None, None, 2, None # Success for non-select queries
@@ -113,48 +139,91 @@ def execute_sql_query(query: str) -> Tuple[Optional[List[Tuple]], Optional[List[
     except mysql.connector.Error as e:
         logger.error(f"SQL Error executing query '{query}': {e}")
         error_message = f"SQL Error: {e}"
+        # Rollback changes if an error occurs during non-select queries
+        if conn:
+            try:
+                conn.rollback()
+            except mysql.connector.Error as rb_err:
+                logger.error(f"Error during rollback: {rb_err}")
         return None, None, None, 3, error_message
     except Exception as e:
         logger.error(f"Unexpected error executing query '{query}': {e}", exc_info=True)
         error_message = f"Unexpected Error: {e}"
+        # Rollback changes if an unexpected error occurs
+        if conn:
+             try:
+                 conn.rollback()
+             except mysql.connector.Error as rb_err:
+                 logger.error(f"Error during rollback: {rb_err}")
         return None, None, None, 3, error_message
     finally:
         if cursor:
             cursor.close()
+        # Check conn exists and is connected before closing
         if conn and conn.is_connected():
             conn.close()
+            logger.info("DB connection closed.")
 
 
-def fetch_all_tables_and_columns() -> Dict[str, List[str]]:
-    """Fetches all table names and their corresponding column names from the database."""
-    tables_and_columns = {}
+# REWRITE fetch_all_tables_and_columns to fetch from multiple databases
+def fetch_all_tables_and_columns() -> Dict[str, Dict[str, List[str]]]:
+    """
+    Fetches all non-system databases, their tables, and columns.
+    Returns: Dict[db_name, Dict[table_name, List[column_name]]]
+    """
+    schema_info: Dict[str, Dict[str, List[str]]] = {}
     conn = None
     cursor = None
+    # Exclude system databases
+    system_databases = {'information_schema', 'mysql', 'performance_schema', 'sys'}
+
     try:
-        conn = get_db_connection()
+        # Connect without specifying a database
+        conn = get_db_connection(db_name=None)
+        if not conn:
+             logger.error("Failed to get DB connection for schema fetching.")
+             return {"error": {"schema": ["Failed to connect to the database server."]}}
+
         cursor = conn.cursor()
-        cursor.execute("SHOW TABLES;")
-        tables = [row[0] for row in cursor.fetchall()]
 
-        for table in tables:
+        # Get all databases
+        cursor.execute("SHOW DATABASES;")
+        databases = [row[0] for row in cursor.fetchall() if row[0] not in system_databases]
+
+        if not databases:
+            logger.warning("No user databases found.")
+            return {} # Return empty if no relevant databases
+
+        # Get tables and columns for each relevant database
+        for db_name in databases:
+            schema_info[db_name] = {}
             try:
-                cursor.execute(f"SHOW COLUMNS FROM `{table}`;") # Use backticks for safety
-                tables_and_columns[table] = [column[0] for column in cursor.fetchall()]
+                cursor.execute(f"SHOW TABLES FROM `{db_name}`;")
+                tables = [row[0] for row in cursor.fetchall()]
+
+                for table_name in tables:
+                    try:
+                        cursor.execute(f"SHOW COLUMNS FROM `{db_name}`.`{table_name}`;")
+                        columns = [column[0] for column in cursor.fetchall()]
+                        schema_info[db_name][table_name] = columns
+                    except mysql.connector.Error as e:
+                        logger.warning(f"Could not fetch columns for table {db_name}.{table_name}: {e}")
+                        schema_info[db_name][table_name] = [f"Error fetching columns: {e}"]
+
             except mysql.connector.Error as e:
-                 logger.warning(f"Could not fetch columns for table {table}: {e}")
-                 tables_and_columns[table] = [f"Error fetching columns: {e}"]
+                 logger.warning(f"Could not fetch tables for database {db_name}: {e}")
+                 # Add an error placeholder for the database if tables couldn't be listed
+                 schema_info[db_name] = {"error": [f"Error fetching tables: {e}"]}
 
+        logger.info(f"Fetched schema for {len(databases)} databases.")
+        return schema_info
 
-        logger.info(f"Fetched schema for {len(tables)} tables.")
-        return tables_and_columns
     except mysql.connector.Error as e:
-        logger.error(f"SQL Error fetching schema: {e}")
-        # Return partial results or raise, depending on desired behavior
-        # Returning partial results here so the app can still show something
-        return {"error": [f"SQL Error fetching tables: {e}"]}
+        logger.error(f"SQL Error fetching database list: {e}")
+        return {"error": {"schema": [f"SQL Error fetching databases: {e}"]}} # Indicate error in schema structure
     except Exception as e:
-        logger.error(f"Error fetching tables and columns: {e}", exc_info=True)
-        return {"error": [f"Unexpected error fetching schema: {str(e)}"]}
+        logger.error(f"Error fetching schema: {e}", exc_info=True)
+        return {"error": {"schema": [f"Unexpected error fetching schema: {str(e)}"]}}
     finally:
         if cursor:
             cursor.close()
@@ -163,15 +232,30 @@ def fetch_all_tables_and_columns() -> Dict[str, List[str]]:
 
 # --- Gemini API Interaction ---
 
-def generate_sql_with_gemini(user_query: str, schema: Dict[str, List[str]]) -> Optional[str]:
-    """Generates an SQL query using the Gemini API based on user input and schema."""
-    schema_string = "\n".join(
-        [f"- Table '{table}': Columns: {', '.join(columns)}" for table, columns in schema.items()]
-    )
-    if not schema or "error" in schema:
+# MODIFY schema_string generation in generate_sql_with_gemini
+def generate_sql_with_gemini(user_query: str, schema: Dict[str, Dict[str, List[str]]]) -> Optional[str]:
+    """Generates an SQL query using the Gemini API based on user input and multi-DB schema."""
+    schema_string = ""
+    if not schema or "error" in schema: # Check for top-level error
          schema_string = "Could not fetch schema. Please ensure database connection is correct."
+    else:
+        for db_name, tables in schema.items():
+            schema_string += f"\nDatabase: `{db_name}`\n"
+            if isinstance(tables, dict): # Check if it's a dictionary of tables or an error list
+                if not tables:
+                     schema_string += "  (No tables found or accessible)\n"
+                elif "error" in tables:
+                     schema_string += f"  Error fetching tables: {tables['error']}\n"
+                else:
+                    for table_name, columns in tables.items():
+                        col_string = ', '.join([f"`{c}`" for c in columns])
+                        schema_string += f"  - Table: `{table_name}`: Columns: {col_string}\n"
+            else:
+                 # Handle case where schema[db_name] might be an error list itself (though unlikely with current fetch logic)
+                 schema_string += f"  Error retrieving table details for this database.\n"
 
-    prompt = f"""You are an expert SQL assistant. Given the following database schema and a user question, generate the most appropriate SQL query to answer the question.
+
+    prompt = f"""You are an expert SQL assistant. Given the following database schema across potentially multiple databases and a user question, generate the most appropriate SQL query to answer the question.
 
 Database Schema:
 {schema_string}
@@ -180,6 +264,7 @@ User Question: "{user_query}"
 
 Instructions:
 - Analyze the user question and the schema carefully.
+- If querying a table, use the fully qualified name (e.g., `database_name`.`table_name`) unless the query context makes the database obvious or only one database exists. Prefer qualified names for clarity.
 - Generate **only** the SQL query.
 - Do not include any explanations, introductory text, backticks (```sql), or markdown formatting.
 - Ensure the query is syntactically correct for MySQL.
@@ -187,6 +272,7 @@ Instructions:
 
 SQL Query:"""
 
+    # --- rest of the function remains the same ---
     try:
         model = genai.GenerativeModel(GEMINI_MODEL_NAME)
         response = model.generate_content(prompt)
@@ -202,18 +288,20 @@ SQL Query:"""
         logger.info(f"Gemini generated SQL: {sql_query}")
         if sql_query.lower().startswith("error:"):
              logger.warning(f"Gemini indicated an error: {sql_query}")
-             return None # Indicate that Gemini couldn't generate a valid query
+             # Return the error message from Gemini
+             return sql_query # Return the error string itself
 
         # Basic validation (prevent obviously non-SQL responses)
-        if not any(kw in sql_query.lower() for kw in ["select", "insert", "update", "delete", "show", "create", "alter", "drop"]):
+        # Allow for USE statement as well
+        if not any(kw in sql_query.lower() for kw in ["select", "insert", "update", "delete", "show", "create", "alter", "drop", "use"]):
              logger.warning(f"Generated text doesn't look like SQL: {sql_query}")
-             return None # Or return the text as an error message?
+             return "Error: Generated text does not appear to be a valid SQL query." # Return an error string
 
         return sql_query
 
     except Exception as e:
         logger.error(f"Error calling Gemini API for SQL generation: {e}", exc_info=True)
-        return None # Indicate failure
+        return "Error: Failed to communicate with the AI model for SQL generation." # Return an error string
 
 def get_insights_with_gemini(original_query: str, sql_query: str, results: List[Tuple], columns: List[str], col_types: str) -> str:
     """Generates insights on the data using the Gemini API."""
