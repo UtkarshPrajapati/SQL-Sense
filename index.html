@@ -110,6 +110,102 @@
         .settings-icon-rotate-ccw {
             animation: rotate-ccw 0.5s ease forwards;
         }
+
+        /* Toast notification styles */
+        #toast-container {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            max-width: 24rem;
+        }
+
+        .toast {
+            padding: 1rem;
+            border-radius: 0.375rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            animation: toast-in 0.3s ease-in-out forwards;
+            max-width: 100%;
+        }
+
+        .toast-success {
+            background-color: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+
+        .toast-warning {
+            background-color: #fef3c7;
+            color: #92400e;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .toast-error {
+            background-color: #fee2e2;
+            color: #b91c1c;
+            border-left: 4px solid #ef4444;
+        }
+
+        .toast-info {
+            background-color: #e0f2fe;
+            color: #0c4a6e;
+            border-left: 4px solid #0ea5e9;
+        }
+
+        .toast-content {
+            flex: 1;
+            overflow-wrap: break-word;
+            word-break: break-word;
+            white-space: pre-line;
+        }
+
+        .toast-close {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-left: 0.5rem;
+            padding: 0;
+            color: currentColor;
+            opacity: 0.7;
+        }
+
+        .toast-close:hover {
+            opacity: 1;
+        }
+
+        @keyframes toast-in {
+            0% { 
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            100% { 
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes toast-out {
+            0% { 
+                transform: translateX(0);
+                opacity: 1;
+            }
+            100% { 
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        .toast-remove {
+            animation: toast-out 0.3s ease-in-out forwards;
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans flex flex-col h-screen">
@@ -129,6 +225,9 @@
             </button>
         </div>
     </header>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
 
     <!-- Configuration Popup -->
     <div id="config-popup" class="bg-white rounded-lg p-4 border border-gray-200">
@@ -158,8 +257,15 @@
                 <input type="password" id="gemini-api-key" name="gemini-api-key" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="API Key">
             </div>
             <div class="pt-2">
-                <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    Save Configuration
+                <button type="submit" id="config-save-btn" class="w-full inline-flex justify-center items-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <span id="config-save-text">Save Configuration</span>
+                    <div id="config-save-spinner" class="hidden ml-2 flex items-center">
+                        <svg aria-hidden="true" class="w-4 h-4 text-white animate-spin fill-indigo-300" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor"/>
+                            <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill"/>
+                        </svg>
+                        <span class="sr-only">Loading...</span>
+                    </div>
                 </button>
             </div>
         </form>
@@ -456,6 +562,15 @@
         // --- Configuration Popup Functions ---
         
         async function saveConfig(config) {
+            // Set loading state
+            const saveBtn = document.getElementById('config-save-btn');
+            const saveText = document.getElementById('config-save-text'); 
+            const saveSpinner = document.getElementById('config-save-spinner');
+            
+            saveBtn.disabled = true;
+            saveText.classList.add('opacity-75');
+            saveSpinner.classList.remove('hidden');
+            
             try {
                 // Send configuration to backend
                 const response = await fetch('/config', {
@@ -490,21 +605,26 @@
                     }
                     
                     if (connectionWarnings.length > 0) {
-                        alert(`Configuration saved with warnings:\n${connectionWarnings.join('\n')}\n\nChanges have been applied and .env file updated.`);
+                        showToast(`Configuration saved with warnings:\n${connectionWarnings.join('\n')}\n\nChanges have been applied and .env file updated.`, 'warning');
                     } else {
-                        alert(`Configuration successfully saved and applied! No restart required.`);
+                        showToast('Configuration successfully saved and applied! No restart required.', 'success');
                     }
                     
                     // Reload schema to reflect any database connection changes
                     fetchSchema(true);
                 } else {
-                    alert(`Configuration status: ${data.message}`);
+                    showToast(`Configuration status: ${data.message}`, 'info');
                 }
             } catch (error) {
                 console.error('Error saving configuration:', error);
-                alert(`Error saving configuration: ${error.message}. Saved to local storage only.`);
+                showToast(`Error saving configuration: ${error.message}. Saved to local storage only.`, 'error');
                 // Still save to localStorage as fallback
                 localStorage.setItem('sqlAssistantConfig', JSON.stringify(config));
+            } finally {
+                // Reset button state
+                saveBtn.disabled = false;
+                saveText.classList.remove('opacity-75');
+                saveSpinner.classList.add('hidden');
             }
         }
         
@@ -618,6 +738,53 @@
         });
 
         // --- Initial Setup ---
+
+        // Function to show toast notifications
+        function showToast(message, type = 'info', duration = 5000) {
+            const toastContainer = document.getElementById('toast-container');
+            if (!toastContainer) return;
+            
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            // Create content and close button
+            const content = document.createElement('div');
+            content.className = 'toast-content';
+            content.textContent = message;
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'toast-close';
+            closeBtn.innerHTML = '&times;';
+            closeBtn.addEventListener('click', () => removeToast(toast));
+            
+            // Assemble toast
+            toast.appendChild(content);
+            toast.appendChild(closeBtn);
+            toastContainer.appendChild(toast);
+            
+            // Only set auto-remove timer for success and info toasts
+            // Warning and error toasts stay until manually closed
+            if (duration > 0 && (type === 'success' || type === 'info')) {
+                setTimeout(() => removeToast(toast), duration);
+            }
+            
+            return toast;
+        }
+
+        function removeToast(toast) {
+            if (!toast) return;
+            
+            // Add fade-out animation class
+            toast.classList.add('toast-remove');
+            
+            // Remove from DOM after animation completes
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 300); // Match animation duration
+        }
 
         // Render initial icons
         lucide.createIcons();
