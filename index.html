@@ -123,7 +123,9 @@
                 <i id="settings-icon" data-lucide="settings" class="mr-1 h-4 w-4 text-indigo-600"></i> Config
             </button>
             <button id="schema-toggle-btn" class="bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg shadow text-sm transition duration-150 ease-in-out flex items-center">
-                <i data-lucide="database" class="mr-1 h-4 w-4 text-indigo-600"></i> View Schema
+                <span id="schema-db-icon" class="mr-1"><i data-lucide="database" class="h-4 w-4 text-indigo-600"></i></span>
+                <span id="schema-up-icon" class="mr-1 hidden"><i data-lucide="chevron-up" class="h-4 w-4 text-indigo-600"></i></span>
+                <span id="schema-text">View Schema</span>
             </button>
         </div>
     </header>
@@ -530,6 +532,9 @@
         schemaToggleBtn.addEventListener('click', () => {
             // Check if it's currently hidden (using max-height as indicator)
             const isHidden = schemaDisplay.classList.contains('max-h-0');
+            const dbIcon = document.getElementById('schema-db-icon');
+            const upIcon = document.getElementById('schema-up-icon');
+            const schemaText = document.getElementById('schema-text');
 
             if (isHidden) {
                 // --- Show Schema ---
@@ -538,8 +543,10 @@
                 // Add shown state classes and overflow-y-auto
                 schemaDisplay.classList.add('max-h-48', 'opacity-100', 'p-4', 'border-b', 'overflow-y-auto');
 
-                // Update button content
-                schemaToggleBtn.innerHTML = '<i data-lucide="chevron-up" class="mr-1 h-4 w-4 text-indigo-600"></i> Hide Schema';
+                // Update button icons
+                dbIcon.classList.add('hidden');
+                upIcon.classList.remove('hidden');
+                schemaText.textContent = 'Hide Schema';
 
                 // Fetch schema only if it hasn't been loaded or if forced refresh
                 // Check if content is empty, contains 'Loading', or 'Failed'
@@ -552,23 +559,15 @@
                 }
             } else {
                 // --- Hide Schema ---
-                 // Remove shown state classes
+                // Remove shown state classes
                 schemaDisplay.classList.remove('max-h-48', 'opacity-100', 'p-4', 'border-b', 'overflow-y-auto');
-                 // Add hidden state classes and overflow-hidden
+                // Add hidden state classes and overflow-hidden
                 schemaDisplay.classList.add('max-h-0', 'opacity-0', 'p-0', 'border-0', 'overflow-hidden');
 
-                // Update button content
-                schemaToggleBtn.innerHTML = '<i data-lucide="database" class="mr-1 h-4 w-4 text-indigo-600"></i> View Schema';
-            }
-            // Create only the icon in the schema button without affecting other Lucide icons
-            const schemaIcons = schemaToggleBtn.querySelectorAll('[data-lucide]');
-            if (schemaIcons.length > 0) {
-                lucide.createIcons({
-                    attrs: {
-                        class: ["lucide-schema-button-icon"]
-                    },
-                    elements: schemaIcons
-                });
+                // Update button icons
+                dbIcon.classList.remove('hidden');
+                upIcon.classList.add('hidden');
+                schemaText.textContent = 'View Schema';
             }
         });
 
