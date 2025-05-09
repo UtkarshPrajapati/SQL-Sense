@@ -757,6 +757,52 @@
         }
         // --- END: Functions for handling query confirmation ---
 
+        // --- ADDED: Toast Notification Function ---
+        function showToast(message, type = 'info', duration = 5000) {
+            const container = document.getElementById('toast-container');
+            if (!container) {
+                console.error('Toast container not found!');
+                return;
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`; // e.g., toast toast-success
+
+            const content = document.createElement('div');
+            content.className = 'toast-content';
+            content.textContent = message;
+
+            const closeButton = document.createElement('button');
+            closeButton.className = 'toast-close';
+            closeButton.innerHTML = '&times;'; // Simple 'x'
+            closeButton.onclick = () => {
+                toast.classList.add('toast-remove');
+                toast.addEventListener('animationend', () => {
+                    if (container.contains(toast)) { // Check if still a child before removing
+                        container.removeChild(toast);
+                    }
+                });
+            };
+
+            toast.appendChild(content);
+            toast.appendChild(closeButton);
+            container.appendChild(toast);
+
+            // Auto-remove after duration
+            setTimeout(() => {
+                // Check if toast is still in DOM (user might have closed it manually)
+                if (container.contains(toast) && !toast.classList.contains('toast-remove')) {
+                    toast.classList.add('toast-remove');
+                    toast.addEventListener('animationend', () => {
+                         if (container.contains(toast)) { // Double check before removing
+                            container.removeChild(toast);
+                         }
+                    });
+                }
+            }, duration);
+        }
+        // --- END: Toast Notification Function ---
+
         // --- Configuration Popup Functions ---
         
         async function saveConfig(config) {
