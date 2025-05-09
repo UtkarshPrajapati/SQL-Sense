@@ -13,6 +13,7 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 import google.generativeai as genai
 from dotenv import load_dotenv
+import functools
 
 # --- Configuration ---
 load_dotenv() # Load environment variables from .env file
@@ -57,6 +58,19 @@ def initialize_gemini_api():
 
 # Initialize Gemini API on startup
 initialize_gemini_api()
+
+# ADDED: Decorator to check Gemini API initialization
+def ensure_gemini_initialized(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if not gemini_initialized:
+            # Log the issue, the function itself will return an error message string
+            logger.warning(f"Gemini API not initialized. Call to {func.__name__} will be skipped.")
+            # Depending on the function's expected return type, you might return a specific error object/string.
+            # For these functions, they are expected to return a string, so we return an error string.
+            return "Error: Gemini API not configured. Please set up your API key in the configuration."
+        return func(*args, **kwargs)
+    return wrapper
 
 # Function to update environment variables and .env file
 def update_environment(config_data):
@@ -406,11 +420,12 @@ def fetch_all_tables_and_columns() -> Dict[str, Dict[str, List[str]]]:
 # --- Gemini API Interaction ---
 
 # MODIFY schema_string generation in generate_sql_with_gemini
+@ensure_gemini_initialized
 def generate_sql_with_gemini(user_query: str, schema: Dict[str, Dict[str, List[str]]]) -> Optional[str]:
     """Generates an SQL query using the Gemini API based on user input and multi-DB schema."""
-    # Check if Gemini API is initialized
-    if not gemini_initialized:
-        return "Error: Gemini API not configured. Please set up your API key in the configuration."
+    # Check if Gemini API is initialized - REMOVED, HANDLED BY DECORATOR
+    # if not gemini_initialized:
+    #     return "Error: Gemini API not configured. Please set up your API key in the configuration."
         
     schema_string = ""
     if not schema or "error" in schema: # Check for top-level error
@@ -480,11 +495,12 @@ SQL Query:"""
         logger.error(f"Error calling Gemini API for SQL generation: {e}", exc_info=True)
         return "Error: Failed to communicate with the AI model for SQL generation." # Return an error string
 
+@ensure_gemini_initialized
 def get_insights_with_gemini(original_query: str, sql_query: str, results: List[Tuple], columns: List[str], col_types: str) -> str:
     """Generates insights on the data using the Gemini API."""
-    # Check if Gemini API is initialized
-    if not gemini_initialized:
-        return "Insights not available: Gemini API not configured."
+    # Check if Gemini API is initialized - REMOVED, HANDLED BY DECORATOR
+    # if not gemini_initialized:
+    #     return "Insights not available: Gemini API not configured."
         
     if not results:
         return "No results to analyze."
@@ -525,11 +541,12 @@ Analysis:"""
         return "Error generating insights from the AI model."
 
 # ADD New function for conversational responses
+@ensure_gemini_initialized
 def get_conversational_response_with_gemini(user_message: str) -> str:
     """Gets a conversational response from Gemini."""
-    # Check if Gemini API is initialized
-    if not gemini_initialized:
-        return "I'm sorry, but the Gemini API is not configured. Please set up your API key in the configuration."
+    # Check if Gemini API is initialized - REMOVED, HANDLED BY DECORATOR
+    # if not gemini_initialized:
+    #     return "I'm sorry, but the Gemini API is not configured. Please set up your API key in the configuration."
         
     logger.info(f"Getting conversational response for: {user_message}")
     prompt = f"""You are a helpful assistant. Respond conversationally and politely to the following user message. Do not attempt to generate SQL or refer to databases unless the user explicitly asks about them in this message.
