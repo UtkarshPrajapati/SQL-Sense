@@ -62,6 +62,35 @@
         .results-table tbody tr:hover {
             background-color: #f1f5f9; /* Tailwind slate-100 */
         }
+        /* Config popup styles */
+        #config-popup {
+            position: absolute;
+            top: 70px;
+            right: 20px;
+            z-index: 50;
+            width: 300px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            /* Animation settings - more dramatic slide effect */
+            opacity: 0;
+            transform: translateY(-30px);
+            transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            pointer-events: none;
+            display: block;
+            visibility: hidden;
+            /* Add a scale effect for more drama */
+            transform-origin: top right;
+            transform: translateY(-30px) scale(0.95);
+        }
+        #config-popup.visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            visibility: visible;
+            pointer-events: auto;
+        }
+        /* Add animation debug outlines if needed */
+        #config-popup.debug-animation {
+            outline: 2px solid red;
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans flex flex-col h-screen">
@@ -70,10 +99,48 @@
         <h1 class="text-xl font-bold flex items-center">
             <i data-lucide="database" class="mr-2"></i> DataFlow
         </h1>
-        <button id="schema-toggle-btn" class="bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg shadow text-sm transition duration-150 ease-in-out flex items-center">
-            <i data-lucide="database" class="mr-1 h-4 w-4 text-indigo-600"></i> View Schema
-        </button>
+        <div class="flex items-center space-x-3">
+            <button id="config-toggle-btn" class="bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg shadow text-sm transition duration-150 ease-in-out flex items-center">
+                <i data-lucide="settings" class="mr-1 h-4 w-4 text-indigo-600"></i> Config
+            </button>
+            <button id="schema-toggle-btn" class="bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg shadow text-sm transition duration-150 ease-in-out flex items-center">
+                <i data-lucide="database" class="mr-1 h-4 w-4 text-indigo-600"></i> View Schema
+            </button>
+        </div>
     </header>
+
+    <!-- Configuration Popup -->
+    <div id="config-popup" class="bg-white rounded-lg p-4 border border-gray-200">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="font-semibold text-gray-800">Database Configuration</h3>
+            <button id="close-config-btn" class="text-gray-500 hover:text-gray-700">
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+        </div>
+        <form id="config-form" class="space-y-3">
+            <div>
+                <label for="mysql-host" class="block text-sm font-medium text-gray-700">MySQL Host</label>
+                <input type="text" id="mysql-host" name="mysql-host" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="localhost">
+            </div>
+            <div>
+                <label for="mysql-user" class="block text-sm font-medium text-gray-700">MySQL User</label>
+                <input type="text" id="mysql-user" name="mysql-user" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="root">
+            </div>
+            <div>
+                <label for="mysql-password" class="block text-sm font-medium text-gray-700">MySQL Password</label>
+                <input type="password" id="mysql-password" name="mysql-password" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="root">
+            </div>
+            <div>
+                <label for="gemini-api-key" class="block text-sm font-medium text-gray-700">Gemini API Key</label>
+                <input type="password" id="gemini-api-key" name="gemini-api-key" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="API Key">
+            </div>
+            <div class="pt-2">
+                <button type="submit" class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Save Configuration
+                </button>
+            </div>
+        </form>
+    </div>
 
     <div id="schema-display"
          class="bg-white border-gray-200 text-sm
@@ -117,6 +184,10 @@
         const schemaContent = document.getElementById('schema-content');
         const schemaToggleBtn = document.getElementById('schema-toggle-btn');
         const refreshSchemaBtn = document.getElementById('refresh-schema-btn');
+        const configToggleBtn = document.getElementById('config-toggle-btn');
+        const configPopup = document.getElementById('config-popup');
+        const closeConfigBtn = document.getElementById('close-config-btn');
+        const configForm = document.getElementById('config-form');
 
         // --- Helper Functions ---
 
@@ -344,6 +415,72 @@
             }
         }
 
+        // --- Configuration Popup Functions ---
+        
+        async function saveConfig(config) {
+            try {
+                // Send configuration to backend
+                const response = await fetch('/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        mysql_host: config.mysqlHost,
+                        mysql_user: config.mysqlUser,
+                        mysql_password: config.mysqlPassword,
+                        gemini_api_key: config.geminiApiKey
+                    }),
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Save locally regardless of server response
+                localStorage.setItem('sqlAssistantConfig', JSON.stringify(config));
+                
+                if (data.status === 'success') {
+                    const connectionWarnings = [];
+                    if (data.mysql_connection !== 'success') {
+                        connectionWarnings.push(`MySQL connection warning: ${data.mysql_connection}`);
+                    }
+                    if (data.gemini_api !== 'success') {
+                        connectionWarnings.push(`Gemini API warning: ${data.gemini_api}`);
+                    }
+                    
+                    if (connectionWarnings.length > 0) {
+                        alert(`Configuration saved with warnings:\n${connectionWarnings.join('\n')}\n\nChanges have been applied and .env file updated.`);
+                    } else {
+                        alert(`Configuration successfully saved and applied! No restart required.`);
+                    }
+                    
+                    // Reload schema to reflect any database connection changes
+                    fetchSchema(true);
+                } else {
+                    alert(`Configuration status: ${data.message}`);
+                }
+            } catch (error) {
+                console.error('Error saving configuration:', error);
+                alert(`Error saving configuration: ${error.message}. Saved to local storage only.`);
+                // Still save to localStorage as fallback
+                localStorage.setItem('sqlAssistantConfig', JSON.stringify(config));
+            }
+        }
+        
+        function loadConfig() {
+            const savedConfig = localStorage.getItem('sqlAssistantConfig');
+            if (savedConfig) {
+                const config = JSON.parse(savedConfig);
+                document.getElementById('mysql-host').value = config.mysqlHost || '';
+                document.getElementById('mysql-user').value = config.mysqlUser || '';
+                document.getElementById('mysql-password').value = config.mysqlPassword || '';
+                document.getElementById('gemini-api-key').value = config.geminiApiKey || '';
+            }
+        }
+
         // --- Event Listeners ---
 
         chatForm.addEventListener('submit', (e) => {
@@ -391,9 +528,38 @@
             lucide.createIcons();
         });
 
-         refreshSchemaBtn.addEventListener('click', () => {
-             fetchSchema(true); // Force refresh with loading indicator
-         });
+        refreshSchemaBtn.addEventListener('click', () => {
+            fetchSchema(true); // Force refresh with loading indicator
+        });
+        
+        // Configuration popup event handlers
+        configToggleBtn.addEventListener('click', () => {
+            // Toggle config popup visibility
+            if (configPopup.classList.contains('visible')) {
+                // Start closing animation
+                configPopup.classList.remove('visible');
+            } else {
+                // Start opening animation
+                configPopup.classList.add('visible');
+                loadConfig(); // Load saved config when opening
+            }
+        });
+        
+        closeConfigBtn.addEventListener('click', () => {
+            configPopup.classList.remove('visible');
+        });
+        
+        configForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const config = {
+                mysqlHost: document.getElementById('mysql-host').value || "localhost",
+                mysqlUser: document.getElementById('mysql-user').value || "root",
+                mysqlPassword: document.getElementById('mysql-password').value || "root",
+                geminiApiKey: document.getElementById('gemini-api-key').value || ""
+            };
+            await saveConfig(config);
+            configPopup.classList.remove('visible');
+        });
 
         // --- Initial Setup ---
 
@@ -402,7 +568,6 @@
 
         // Optionally fetch schema on load, but maybe better behind the button click
         // fetchSchema();
-
     </script>
 </body>
 </html>

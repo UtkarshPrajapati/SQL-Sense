@@ -17,25 +17,183 @@ from dotenv import load_dotenv
 # --- Configuration ---
 load_dotenv() # Load environment variables from .env file
 
-# Database Configuration (Update with your details)
+# Logging Configuration - moved to the top
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Database Configuration with defaults
 MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
 MYSQL_USER = os.getenv("MYSQL_USER", "root")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "root")
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "SQLLLM")
 
 # Gemini API Configuration
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY not found in environment variables. Please set it in a .env file or environment.")
-
-genai.configure(api_key=GEMINI_API_KEY)
-# Use a model that supports function calling or is good at structured output if possible
-# gemini-1.5-flash seems suitable for this kind of task. Adjust if needed.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL_NAME = "gemini-2.0-flash"
 
-# Logging Configuration
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Variable to track if Gemini API is initialized
+gemini_initialized = False
+
+# Path to .env file
+ENV_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+
+# Function to initialize Gemini API
+def initialize_gemini_api():
+    global gemini_initialized
+    try:
+        if GEMINI_API_KEY:
+            genai.configure(api_key=GEMINI_API_KEY)
+            gemini_initialized = True
+            logger.info("Gemini API initialized successfully")
+            return True
+        else:
+            logger.warning("GEMINI_API_KEY not found. Some features will be limited.")
+            gemini_initialized = False
+            return False
+    except Exception as e:
+        logger.error(f"Failed to initialize Gemini API: {e}")
+        gemini_initialized = False
+        return False
+
+# Initialize Gemini API on startup
+initialize_gemini_api()
+
+# Function to update environment variables and .env file
+def update_environment(config_data):
+    """Updates environment variables and .env file with new configurations."""
+    global MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE, GEMINI_API_KEY
+    
+    # Define default values for each configuration
+    defaults = {
+        "mysql_host": "localhost",
+        "mysql_user": "root",
+        "mysql_password": "root",
+        "mysql_database": "SQLLLM",
+        "gemini_api_key": ""
+    }
+    
+    # Update environment variables with non-empty values or defaults
+    if "mysql_host" in config_data and config_data["mysql_host"]:
+        MYSQL_HOST = config_data["mysql_host"]
+    else:
+        MYSQL_HOST = defaults["mysql_host"]
+    os.environ["MYSQL_HOST"] = MYSQL_HOST
+    
+    if "mysql_user" in config_data and config_data["mysql_user"]:
+        MYSQL_USER = config_data["mysql_user"]
+    else:
+        MYSQL_USER = defaults["mysql_user"]
+    os.environ["MYSQL_USER"] = MYSQL_USER
+    
+    if "mysql_password" in config_data and config_data["mysql_password"]:
+        MYSQL_PASSWORD = config_data["mysql_password"]
+    else:
+        MYSQL_PASSWORD = defaults["mysql_password"]
+    os.environ["MYSQL_PASSWORD"] = MYSQL_PASSWORD
+    
+    if "mysql_database" in config_data and config_data["mysql_database"]:
+        MYSQL_DATABASE = config_data["mysql_database"]
+    else:
+        MYSQL_DATABASE = defaults["mysql_database"]
+    os.environ["MYSQL_DATABASE"] = MYSQL_DATABASE
+    
+    if "gemini_api_key" in config_data and config_data["gemini_api_key"]:
+        GEMINI_API_KEY = config_data["gemini_api_key"]
+        os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
+        # Reinitialize Gemini API with new key
+        initialize_gemini_api()
+    
+    # Update .env file
+    update_env_file(config_data, defaults)
+    
+    logger.info("Environment variables updated with new configuration")
+
+# Function to update .env file
+def update_env_file(config_data, defaults):
+    """Updates .env file with new configuration data."""
+    try:
+        # Create a new .env file if it doesn't exist
+        if not os.path.exists(ENV_FILE_PATH):
+            with open(ENV_FILE_PATH, "w") as env_file:
+                env_file.write(f"MYSQL_HOST={config_data.get('mysql_host', defaults['mysql_host'])}\n")
+                env_file.write(f"MYSQL_USER={config_data.get('mysql_user', defaults['mysql_user'])}\n")
+                env_file.write(f"MYSQL_PASSWORD={config_data.get('mysql_password', defaults['mysql_password'])}\n")
+                env_file.write(f"MYSQL_DATABASE={config_data.get('mysql_database', defaults['mysql_database'])}\n")
+                env_file.write(f"GEMINI_API_KEY={config_data.get('gemini_api_key', defaults['gemini_api_key'])}\n")
+                logger.info("Created .env file with new configuration")
+        else:
+            # Read existing .env file
+            try:
+                with open(ENV_FILE_PATH, "r") as env_file:
+                    lines = env_file.readlines()
+            except Exception as e:
+                logger.error(f"Error reading .env file: {e}")
+                # If reading fails, create a new file
+                with open(ENV_FILE_PATH, "w") as env_file:
+                    env_file.write(f"MYSQL_HOST={config_data.get('mysql_host', defaults['mysql_host'])}\n")
+                    env_file.write(f"MYSQL_USER={config_data.get('mysql_user', defaults['mysql_user'])}\n")
+                    env_file.write(f"MYSQL_PASSWORD={config_data.get('mysql_password', defaults['mysql_password'])}\n")
+                    env_file.write(f"MYSQL_DATABASE={config_data.get('mysql_database', defaults['mysql_database'])}\n")
+                    env_file.write(f"GEMINI_API_KEY={config_data.get('gemini_api_key', defaults['gemini_api_key'])}\n")
+                    logger.info("Created new .env file after read failure")
+                return
+                
+            # Update existing lines or add new ones
+            updated_lines = []
+            updated_keys = {"MYSQL_HOST": False, "MYSQL_USER": False, "MYSQL_PASSWORD": False, 
+                          "MYSQL_DATABASE": False, "GEMINI_API_KEY": False}
+            
+            for line in lines:
+                line = line.strip()
+                if not line or line.startswith("#"):  # Preserve comments and blank lines
+                    updated_lines.append(line + "\n")
+                    continue
+                
+                if "=" not in line:  # Skip malformed lines
+                    updated_lines.append(line + "\n")
+                    continue
+                    
+                key, _ = line.split("=", 1)
+                key = key.strip()
+                
+                if key == "MYSQL_HOST":
+                    updated_lines.append(f"MYSQL_HOST={config_data.get('mysql_host', defaults['mysql_host'])}\n")
+                    updated_keys["MYSQL_HOST"] = True
+                elif key == "MYSQL_USER":
+                    updated_lines.append(f"MYSQL_USER={config_data.get('mysql_user', defaults['mysql_user'])}\n")
+                    updated_keys["MYSQL_USER"] = True
+                elif key == "MYSQL_PASSWORD":
+                    updated_lines.append(f"MYSQL_PASSWORD={config_data.get('mysql_password', defaults['mysql_password'])}\n")
+                    updated_keys["MYSQL_PASSWORD"] = True
+                elif key == "MYSQL_DATABASE":
+                    updated_lines.append(f"MYSQL_DATABASE={config_data.get('mysql_database', defaults['mysql_database'])}\n")
+                    updated_keys["MYSQL_DATABASE"] = True
+                elif key == "GEMINI_API_KEY":
+                    updated_lines.append(f"GEMINI_API_KEY={config_data.get('gemini_api_key', defaults['gemini_api_key'])}\n")
+                    updated_keys["GEMINI_API_KEY"] = True
+                else:
+                    updated_lines.append(line + "\n")  # Preserve other environment variables
+            
+            # Add any missing keys
+            for key, updated in updated_keys.items():
+                if not updated:
+                    if key == "MYSQL_HOST":
+                        updated_lines.append(f"MYSQL_HOST={config_data.get('mysql_host', defaults['mysql_host'])}\n")
+                    elif key == "MYSQL_USER":
+                        updated_lines.append(f"MYSQL_USER={config_data.get('mysql_user', defaults['mysql_user'])}\n")
+                    elif key == "MYSQL_PASSWORD":
+                        updated_lines.append(f"MYSQL_PASSWORD={config_data.get('mysql_password', defaults['mysql_password'])}\n")
+                    elif key == "MYSQL_DATABASE":
+                        updated_lines.append(f"MYSQL_DATABASE={config_data.get('mysql_database', defaults['mysql_database'])}\n")
+                    elif key == "GEMINI_API_KEY":
+                        updated_lines.append(f"GEMINI_API_KEY={config_data.get('gemini_api_key', defaults['gemini_api_key'])}\n")
+            
+            # Write updated .env file
+            with open(ENV_FILE_PATH, "w") as env_file:
+                env_file.writelines(updated_lines)
+                logger.info("Updated .env file with new configuration")
+    except Exception as e:
+        logger.error(f"Error updating .env file: {e}")
 
 # --- Database Interaction ---
 
@@ -128,7 +286,8 @@ def execute_sql_query(query: str) -> Tuple[Optional[List[Tuple]], Optional[List[
             # conn is guaranteed to be non-None here due to the check above
             conn.commit() # Necessary even for SELECT with some configurations/engines
             # results is guaranteed to be a list (possibly empty) by fetchmany
-            logger.info(f"Query executed successfully, fetched {len(results)} rows.")
+            result_count = len(results) if results is not None else 0
+            logger.info(f"Query executed successfully, fetched {result_count} rows.")
             return results, column_names, column_types_str, 1, None
         else:
             # conn is guaranteed to be non-None here
@@ -188,7 +347,11 @@ def fetch_all_tables_and_columns() -> Dict[str, Dict[str, List[str]]]:
 
         # Get all databases
         cursor.execute("SHOW DATABASES;")
-        databases = [row[0] for row in cursor.fetchall() if row[0] not in system_databases]
+        fetch_result = cursor.fetchall()
+        if fetch_result is None:
+            logger.warning("No databases returned from SHOW DATABASES query.")
+            return {}
+        databases = [row[0] for row in fetch_result if row[0] not in system_databases]
 
         if not databases:
             logger.warning("No user databases found.")
@@ -199,12 +362,22 @@ def fetch_all_tables_and_columns() -> Dict[str, Dict[str, List[str]]]:
             schema_info[db_name] = {}
             try:
                 cursor.execute(f"SHOW TABLES FROM `{db_name}`;")
-                tables = [row[0] for row in cursor.fetchall()]
+                fetch_result = cursor.fetchall()
+                if fetch_result is None:
+                    logger.warning(f"No tables returned for database {db_name}.")
+                    tables = []
+                else:
+                    tables = [row[0] for row in fetch_result]
 
                 for table_name in tables:
                     try:
                         cursor.execute(f"SHOW COLUMNS FROM `{db_name}`.`{table_name}`;")
-                        columns = [column[0] for column in cursor.fetchall()]
+                        fetch_result = cursor.fetchall()
+                        if fetch_result is None:
+                            logger.warning(f"No columns returned for table {db_name}.{table_name}.")
+                            columns = []
+                        else:
+                            columns = [column[0] for column in fetch_result]
                         schema_info[db_name][table_name] = columns
                     except mysql.connector.Error as e:
                         logger.warning(f"Could not fetch columns for table {db_name}.{table_name}: {e}")
@@ -235,6 +408,10 @@ def fetch_all_tables_and_columns() -> Dict[str, Dict[str, List[str]]]:
 # MODIFY schema_string generation in generate_sql_with_gemini
 def generate_sql_with_gemini(user_query: str, schema: Dict[str, Dict[str, List[str]]]) -> Optional[str]:
     """Generates an SQL query using the Gemini API based on user input and multi-DB schema."""
+    # Check if Gemini API is initialized
+    if not gemini_initialized:
+        return "Error: Gemini API not configured. Please set up your API key in the configuration."
+        
     schema_string = ""
     if not schema or "error" in schema: # Check for top-level error
          schema_string = "Could not fetch schema. Please ensure database connection is correct."
@@ -305,6 +482,10 @@ SQL Query:"""
 
 def get_insights_with_gemini(original_query: str, sql_query: str, results: List[Tuple], columns: List[str], col_types: str) -> str:
     """Generates insights on the data using the Gemini API."""
+    # Check if Gemini API is initialized
+    if not gemini_initialized:
+        return "Insights not available: Gemini API not configured."
+        
     if not results:
         return "No results to analyze."
 
@@ -346,6 +527,10 @@ Analysis:"""
 # ADD New function for conversational responses
 def get_conversational_response_with_gemini(user_message: str) -> str:
     """Gets a conversational response from Gemini."""
+    # Check if Gemini API is initialized
+    if not gemini_initialized:
+        return "I'm sorry, but the Gemini API is not configured. Please set up your API key in the configuration."
+        
     logger.info(f"Getting conversational response for: {user_message}")
     prompt = f"""You are a helpful assistant. Respond conversationally and politely to the following user message. Do not attempt to generate SQL or refer to databases unless the user explicitly asks about them in this message.
 
@@ -381,6 +566,13 @@ templates = Jinja2Templates(directory=".") # Expect index.html in the same direc
 class ChatRequest(BaseModel):
     message: str
 
+# Add ConfigRequest model
+class ConfigRequest(BaseModel):
+    mysql_host: str
+    mysql_user: str
+    mysql_password: str
+    gemini_api_key: str
+
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     """Serves the main HTML page."""
@@ -396,6 +588,77 @@ async def get_schema():
          return JSONResponse(content={"schema": schema}, status_code=200)
     return JSONResponse(content={"schema": schema})
 
+# Add config endpoint
+@app.post("/config", response_class=JSONResponse)
+async def update_config(config_request: ConfigRequest):
+    """Updates application configuration."""
+    try:
+        # Apply defaults for empty values
+        mysql_host = config_request.mysql_host if config_request.mysql_host else "localhost"
+        mysql_user = config_request.mysql_user if config_request.mysql_user else "root"
+        mysql_password = config_request.mysql_password if config_request.mysql_password else "root"
+        gemini_api_key = config_request.gemini_api_key if config_request.gemini_api_key else ""
+        
+        config_data = {
+            "mysql_host": mysql_host,
+            "mysql_user": mysql_user,
+            "mysql_password": mysql_password,
+            "gemini_api_key": gemini_api_key
+        }
+        
+        # Test MySQL connection
+        try:
+            conn = mysql.connector.connect(
+                host=mysql_host,
+                user=mysql_user,
+                password=mysql_password,
+                auth_plugin='mysql_native_password'
+            )
+            conn.close()
+            mysql_status = "success"
+        except mysql.connector.Error as err:
+            logger.error(f"Failed to connect with new MySQL credentials: {err}")
+            mysql_status = f"failed: {err}"
+            
+        # Test Gemini API key
+        original_key = GEMINI_API_KEY
+        gemini_status = "success"
+        
+        try:
+            # Temporarily set the new key
+            os.environ["GEMINI_API_KEY"] = gemini_api_key
+            genai.configure(api_key=gemini_api_key)
+            test_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+            # Try a simple test generation
+            test_response = test_model.generate_content("Hello")
+            if test_response.text:
+                gemini_status = "success"
+            else:
+                gemini_status = "failed: no response"
+        except Exception as e:
+            logger.error(f"Failed to initialize Gemini API with new key: {e}")
+            gemini_status = f"failed: {e}"
+            # Restore the original key
+            os.environ["GEMINI_API_KEY"] = original_key
+            initialize_gemini_api()
+        
+        # Update environment and .env file with new config
+        update_environment(config_data)
+        
+        return JSONResponse(content={
+            "status": "success",
+            "mysql_connection": mysql_status,
+            "gemini_api": gemini_status,
+            "message": "Configuration updated and applied immediately. No restart required.",
+            "restart_needed": False
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating configuration: {e}")
+        return JSONResponse(
+            content={"status": "error", "message": f"Failed to update configuration: {str(e)}"},
+            status_code=500
+        )
 
 @app.post("/chat", response_class=JSONResponse)
 async def handle_chat(chat_request: ChatRequest):
@@ -525,9 +788,5 @@ async def handle_chat(chat_request: ChatRequest):
 if __name__ == "__main__":
     import uvicorn
     logger.info("Starting SQL Assistant server...")
-    # Make sure GEMINI_API_KEY is set before starting
-    if not GEMINI_API_KEY:
-         logger.critical("FATAL: GEMINI_API_KEY is not set. Exiting.")
-    else:
-        # Use port 8012 as in the original setup
-        uvicorn.run(app, host="0.0.0.0", port=8012)
+    # Start the server even if Gemini API key is missing - we can set it later
+    uvicorn.run(app, host="0.0.0.0", port=8012)
