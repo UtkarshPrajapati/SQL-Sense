@@ -570,6 +570,50 @@ Assistant Response:"""
         logger.error(f"Error calling Gemini API for conversational response: {e}", exc_info=True)
         return "I'm having trouble responding right now. Please try again later."
 
+# ADDED: New Gemini function for explaining SQL errors
+@ensure_gemini_initialized
+def get_error_explanation_with_gemini(original_user_query: Optional[str], failed_sql_query: str, error_message: str) -> str:
+    """Generates a user-friendly explanation for an SQL error using Gemini."""
+    # if not gemini_initialized: # Handled by decorator
+    #     return "AI explanation unavailable: Gemini API not configured."
+
+    prompt_context = f"User's original request (if available): \"{original_user_query}\"\n"
+    if not original_user_query:
+        prompt_context = "The user was attempting to execute a specific SQL query.\n"
+
+    prompt = f"""You are an expert SQL troubleshooting assistant.
+
+The following SQL query failed:
+```sql
+{failed_sql_query}
+```
+
+The database returned this error message:
+{error_message}
+
+{prompt_context}
+Instructions:
+- Explain the error message in simple, easy-to-understand terms in 5-10 sentences maximum.
+- What are the common reasons for this specific error?
+- What should the user check or try to resolve this issue?
+- If the error indicates the table is not insertable (e.g., it's a view), explain what that means.
+- Format your response clearly using Markdown. Start with "### AI Troubleshooting Suggestion".
+- Do not repeat the SQL query or the raw error message unless it's for specific emphasis within your explanation.
+
+Explanation:"""
+
+    try:
+        model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+        response = model.generate_content(prompt)
+        if response.prompt_feedback and response.prompt_feedback.block_reason:
+            logger.warning(f"Error explanation response blocked. Reason: {response.prompt_feedback.block_reason}")
+            return "AI explanation could not be generated for this error due to content restrictions."
+        logger.info("Gemini generated SQL error explanation.")
+        return response.text.strip()
+    except Exception as e:
+        logger.error(f"Error calling Gemini API for SQL error explanation: {e}", exc_info=True)
+        return "Error generating AI explanation for the SQL error."
+
 # --- FastAPI Application ---
 
 app = FastAPI(title="SQL Assistant with Gemini")
@@ -589,6 +633,25 @@ class ConfigRequest(BaseModel):
     mysql_user: str
     mysql_password: str
     gemini_api_key: str
+
+# ADDED: Model for confirmed execution request
+class ConfirmedExecutionRequest(BaseModel):
+    query: str
+
+# ADDED: Helper function to identify modifying queries
+def is_modifying_query(sql_query: str) -> bool:
+    """Checks if the SQL query is likely to modify data or structure."""
+    query_lower = sql_query.strip().lower()
+    # Common keywords for DML and DDL that modify data/structure
+    # Excludes SELECT, SHOW, DESCRIBE, EXPLAIN, USE (USE changes session state but isn't data destructive)
+    modifying_keywords = [
+        "insert", "update", "delete", "create", "alter", "drop", "truncate",
+        "replace", "merge", "upsert" # Added more comprehensive keywords
+    ]
+    # Ensure we don't misclassify SELECT ... INTO OUTFILE or similar if not intended.
+    # For now, simple keyword check is the goal.
+    # Avoid flagging common clauses within SELECTs if they share a keyword (less likely with this list).
+    return any(keyword in query_lower for keyword in modifying_keywords)
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
@@ -684,6 +747,7 @@ async def handle_chat(chat_request: ChatRequest):
     response_data: Dict[str, Any] = {"type": "error", "content": "An unexpected error occurred."}
     query_to_run = None # Initialize query_to_run
     schema = None # Initialize schema
+    generated_sql_for_confirmation = None # To hold SQL that needs confirmation
 
     try:
         if user_message.lower().startswith("/run "):
@@ -692,7 +756,6 @@ async def handle_chat(chat_request: ChatRequest):
             if not query_to_run:
                 response_data = {"type": "error", "content": "No query provided after /run command."}
                 return JSONResponse(content=response_data)
-
         else:
             # Natural language query -> Attempt SQL Generation FIRST
             logger.info(f"Processing natural language query: {user_message}")
@@ -723,50 +786,69 @@ async def handle_chat(chat_request: ChatRequest):
                  response_data = {"type": "error", "content": generated_sql}
                  return JSONResponse(content=response_data)
             else:
-                # If SQL was generated successfully, assign it to be run
-                query_to_run = generated_sql
-
-        # --- Logic to handle plain "SHOW TABLES;" (remains the same) ---
-        if query_to_run and query_to_run.strip().lower() == 'show tables;':
-            logger.info("Detected plain 'SHOW TABLES;' query. Checking database context...")
-            # Use schema fetched earlier if available
-            current_schema = schema or fetch_all_tables_and_columns()
-            user_databases = [
-                db for db, tables in current_schema.items()
-                if db != 'error' and db not in {'information_schema', 'mysql', 'performance_schema', 'sys'} and isinstance(tables, dict) and 'error' not in tables
-            ]
-            if len(user_databases) == 1:
-                db_to_use = user_databases[0]
-                logger.info(f"Found single user database '{db_to_use}'. Prepending USE statement.")
-                query_to_run = f"USE `{db_to_use}`; {query_to_run}"
-            elif len(user_databases) > 1:
-                logger.warning("Multiple user databases exist. Cannot execute plain 'SHOW TABLES;'.")
-                response_data = {
-                    "type": "error",
-                    "content": f"Please specify which database's tables you want to see. Multiple databases found: {', '.join(user_databases)}. \nTry 'show tables from database_name;' or ask like 'what tables are in {user_databases[0]}?'."
-                 }
-                return JSONResponse(content=jsonable_encoder(response_data))
-            else:
-                 logger.warning("No user databases found to execute 'SHOW TABLES;' against.")
-                 response_data = { "type": "error", "content": "No user databases found or accessible. Cannot show tables." }
-                 return JSONResponse(content=jsonable_encoder(response_data))
-
-        # --- Execution logic (remains largely the same) ---
+                # --- NEW: Check if generated SQL is modifying ---
+                if is_modifying_query(generated_sql):
+                    logger.info(f"Generated modifying SQL, requires confirmation: {generated_sql}")
+                    response_data = {
+                        "type": "confirm_execution",
+                        "query": generated_sql,
+                        "message": "The AI generated the following query which may modify your data or database structure. Please review and confirm execution:"
+                    }
+                    return JSONResponse(content=jsonable_encoder(response_data))
+                else:
+                    # If SQL was generated successfully and is not modifying, assign it to be run
+                    query_to_run = generated_sql
+        
+        # If we have a query_to_run (either from /run or non-modifying AI gen)
         if query_to_run:
+            # --- Logic to handle plain "SHOW TABLES;" (remains the same) ---
+            if query_to_run.strip().lower() == 'show tables;':
+                logger.info("Detected plain 'SHOW TABLES;' query. Checking database context...")
+                # Use schema fetched earlier if available
+                current_schema = schema or fetch_all_tables_and_columns()
+                user_databases = [
+                    db for db, tables in current_schema.items()
+                    if db != 'error' and db not in {'information_schema', 'mysql', 'performance_schema', 'sys'} and isinstance(tables, dict) and 'error' not in tables
+                ]
+                if len(user_databases) == 1:
+                    db_to_use = user_databases[0]
+                    logger.info(f"Found single user database '{db_to_use}'. Prepending USE statement.")
+                    query_to_run = f"USE `{db_to_use}`; {query_to_run}"
+                elif len(user_databases) > 1:
+                    logger.warning("Multiple user databases exist. Cannot execute plain 'SHOW TABLES;'.")
+                    response_data = {
+                        "type": "error",
+                        "content": f"Please specify which database's tables you want to see. Multiple databases found: {', '.join(user_databases)}. \\nTry 'show tables from database_name;' or ask like 'what tables are in {user_databases[0]}?'."
+                    }
+                    return JSONResponse(content=jsonable_encoder(response_data))
+                else:
+                    logger.warning("No user databases found to execute 'SHOW TABLES;' against.")
+                    response_data = { "type": "error", "content": "No user databases found or accessible. Cannot show tables." }
+                    return JSONResponse(content=jsonable_encoder(response_data))
+
+            # --- Execution logic (remains largely the same) ---
             logger.info(f"Executing final query: {query_to_run}")
             results, columns, col_types, status, db_error = execute_sql_query(query_to_run)
-            # ... (rest of the status handling: 3, 2, 1) ...
+            
             if status == 3: # SQL Error
-                # ... (error reporting as before) ...
                  error_content = f"SQL Error: {db_error or 'Query execution failed.'}"
-                 # (Code to add query context to error_content remains here)
-                 if 'generated_sql' in locals() and generated_sql == query_to_run: error_content = f"Generated SQL failed to execute:\n```sql\n{generated_sql}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
-                 elif 'generated_sql' in locals() and query_to_run.endswith(generated_sql): error_content = f"Generated SQL (modified with USE) failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
-                 else: error_content = f"Query failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
-                 response_data = {"type": "error", "content": error_content}
+                 ai_explanation = ""
+                 # Add context for generated SQL if it was the one that failed
+                 if 'generated_sql' in locals() and generated_sql == query_to_run:
+                     error_content = f"Generated SQL failed to execute:\n```sql\n{generated_sql}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
+                     ai_explanation = get_error_explanation_with_gemini(original_user_query=user_message, failed_sql_query=generated_sql, error_message=str(db_error))
+                 elif 'generated_sql' in locals() and query_to_run.endswith(generated_sql): # Check if it's the modified version
+                     error_content = f"Generated SQL (modified with USE) failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
+                     # Passing user_message, as it was the origin for the generated_sql part
+                     ai_explanation = get_error_explanation_with_gemini(original_user_query=user_message, failed_sql_query=query_to_run, error_message=str(db_error))
+                 else: # For /run commands or other cases
+                     error_content = f"Query failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
+                     # For /run, the original query *is* the query_to_run. No separate user_message for AI context.
+                     ai_explanation = get_error_explanation_with_gemini(original_user_query=None, failed_sql_query=query_to_run, error_message=str(db_error))
+                 response_data = {"type": "error", "content": error_content, "ai_explanation": ai_explanation}
 
             elif status == 2: # DML/DDL Success
-                response_data = {"type": "info", "content": f"Query executed successfully:\n```sql\n{query_to_run}\n```"}
+                response_data = {"type": "info", "content": f"Query executed successfully:\n\n```sql\n{query_to_run}\n```"}
             elif status == 1: # SELECT/SHOW Success
                  insights = ""
                  if results is not None and columns and col_types:
@@ -776,20 +858,18 @@ async def handle_chat(chat_request: ChatRequest):
                  response_data = {"type": "result", "query": query_to_run, "columns": columns, "results": results, "insights": insights }
             else: # Should not happen
                  response_data = {"type": "error", "content": "Unknown query execution status."}
-
         else:
-             # This path might be reached if SQL generation failed in a way other than the specific error
-             # or if the '/run' command was empty initially.
-             # The specific error cases should have returned earlier.
-             logger.error("Reached end of handler without a query to execute, but specific errors were not caught.")
-             # Ensure response_data isn't still the initial default if we got here unexpectedly
+             # This path is reached if AI generation resulted in a query requiring confirmation,
+             # and that confirmation response was already sent.
+             # Or if /run was empty and handled, or if generate_sql_with_gemini returned an error that was handled.
+             # No further action needed here as the response should have been sent.
+             # If response_data is still default, it means an unhandled path.
              if response_data.get("content") == "An unexpected error occurred.":
+                 logger.error("Reached end of handler without a query to execute or a confirmation response being sent.")
                  response_data = {"type": "error", "content": "Could not determine an action for your message."}
 
-
         return JSONResponse(content=jsonable_encoder(response_data))
-
-    # --- Exception Handling (remains the same) ---
+    
     except HTTPException as http_exc:
         logger.error(f"HTTP Exception: {http_exc.detail}")
         # Re-raise HTTPException to let FastAPI handle it
@@ -797,6 +877,49 @@ async def handle_chat(chat_request: ChatRequest):
     except Exception as e:
         logger.critical(f"Unhandled error in /chat endpoint: {e}", exc_info=True)
         # Return a generic server error response
+        response_data = {"type": "error", "content": f"An internal server error occurred: {e}"}
+        return JSONResponse(content=response_data, status_code=500)
+
+# ADDED: New endpoint for executing confirmed SQL
+@app.post("/execute_confirmed_sql", response_class=JSONResponse)
+async def handle_confirmed_sql(request: ConfirmedExecutionRequest):
+    query_to_run = request.query.strip()
+    response_data: Dict[str, Any] = {"type": "error", "content": "An unexpected error occurred."}
+
+    if not query_to_run:
+        response_data = {"type": "error", "content": "No query provided for execution."}
+        return JSONResponse(content=response_data, status_code=400)
+
+    try:
+        logger.info(f"Executing user-confirmed query: {query_to_run}")
+        results, columns, col_types, status, db_error = execute_sql_query(query_to_run)
+
+        if status == 3: # SQL Error
+            error_content = f"Confirmed query failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
+            # For confirmed SQL, original user query is not directly available here.
+            # We can pass the SQL itself as the context for the error explanation.
+            ai_explanation = get_error_explanation_with_gemini(original_user_query=f"User confirmed execution of the following SQL", failed_sql_query=query_to_run, error_message=str(db_error))
+            response_data = {"type": "error", "content": error_content, "ai_explanation": ai_explanation}
+        elif status == 2: # DML/DDL Success
+            response_data = {"type": "info", "content": f"Query executed successfully:\n\n```sql\n{query_to_run}\n```"}
+        elif status == 1: # SELECT/SHOW Success (unlikely for confirmed DML/DDL, but handle robustly)
+            # insights = "" # Decided not to generate insights here for simplicity
+            # if results is not None and columns and col_types:
+            # insights = get_insights_with_gemini(original_query=f"Confirmed execution of: {query_to_run}", sql_query=query_to_run, results=results, columns=columns, col_types=col_types)
+            response_data = {
+                "type": "result", # Keep type as result for consistency if it's a SELECT
+                "query": query_to_run,
+                "columns": columns,
+                "results": results,
+                "insights": "Query executed. Insights are typically generated for natural language queries leading to SELECT."
+            }
+        else: # Should not happen
+            response_data = {"type": "error", "content": "Unknown query execution status."}
+
+        return JSONResponse(content=jsonable_encoder(response_data))
+
+    except Exception as e:
+        logger.critical(f"Unhandled error in /execute_confirmed_sql endpoint: {e}", exc_info=True)
         response_data = {"type": "error", "content": f"An internal server error occurred: {e}"}
         return JSONResponse(content=response_data, status_code=500)
 

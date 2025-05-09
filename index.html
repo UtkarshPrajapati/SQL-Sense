@@ -630,6 +630,14 @@
                 } else if (data.type === 'error') {
                      // Render error potentially containing markdown (like code blocks)
                      assistantMessageHtml += renderMarkdown(data.content);
+                     if (data.ai_explanation) {
+                        assistantMessageHtml += renderMarkdown(data.ai_explanation); // Render AI explanation as Markdown
+                     }
+                } else if (data.type === 'confirm_execution') {
+                    // This case is now handled by addConfirmationMessageToChat
+                    // It will set loading state to false to re-enable input while confirm buttons are visible.
+                    addConfirmationMessageToChat(data.message, data.query);
+                    return; // Return early as we don't want to call addMessageToChat or setLoadingState(false) again here
                 } else {
                     assistantMessageHtml = `<p>${escapeHtml(String(data.content || 'Received unexpected response format.'))}</p>`;
                 }
@@ -643,6 +651,111 @@
                 setLoadingState(false);
             }
         }
+
+        // --- ADDED: Functions for handling query confirmation ---
+        function addConfirmationMessageToChat(messageText, queryToConfirm) {
+            const messageDiv = document.createElement('div');
+            // Using a distinct style for confirmation prompts
+            messageDiv.className = `p-3 rounded-lg bg-yellow-100 border border-yellow-300 text-yellow-800 max-w-3xl mr-auto prose prose-sm max-w-none shadow`;
+
+            let htmlContent = `<p class="font-semibold">${escapeHtml(messageText)}</p>`;
+            htmlContent += `<pre class="bg-yellow-50 p-2 rounded mt-2 border border-yellow-200"><code class="language-sql text-yellow-900">${escapeHtml(queryToConfirm)}</code></pre>`;
+            htmlContent += `<div class="mt-3 flex space-x-2">
+                                <button class="confirm-execute-btn bg-green-600 hover:bg-green-700 text-white font-semibold py-1.5 px-4 rounded text-sm shadow-sm transition-colors duration-150" data-query="${escapeHtml(queryToConfirm)}">Execute</button>
+                                <button class="cancel-execute-btn bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-4 rounded text-sm shadow-sm transition-colors duration-150">Cancel</button>
+                             </div>`;
+
+            messageDiv.innerHTML = htmlContent;
+            chatHistory.appendChild(messageDiv);
+
+            // Add event listeners to the new buttons
+            messageDiv.querySelector('.confirm-execute-btn').addEventListener('click', async function() {
+                const query = this.dataset.query;
+                // Update the current message to "Executing..."
+                const parentMessageBubble = this.closest('.p-3.rounded-lg');
+                if (parentMessageBubble) {
+                    parentMessageBubble.innerHTML = `<p class="font-semibold text-blue-700">Executing query:</p><pre class="bg-blue-50 p-2 rounded mt-2 border border-blue-200"><code class="language-sql text-blue-900">${escapeHtml(query)}</code></pre><p class="mt-2 text-sm text-gray-600 italic">Please wait...</p>`;
+                }
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+                await executeConfirmedQuery(query); // This will add a *new* message with the result
+                // ADDED: Update the original confirmation bubble after execution
+                if (parentMessageBubble) {
+                    parentMessageBubble.innerHTML = `<p class="text-sm text-gray-600 italic">The confirmed query execution has been processed. See result in the new message below.</p>`;
+                    // Optionally, change its styling to be less prominent or more indicative of a completed action
+                    parentMessageBubble.className = `p-3 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 max-w-3xl mr-auto prose prose-sm max-w-none shadow-sm`;
+                }
+            });
+
+            messageDiv.querySelector('.cancel-execute-btn').addEventListener('click', function() {
+                // Replace current message with cancellation
+                const parentMessageBubble = this.closest('.p-3.rounded-lg');
+                if (parentMessageBubble) {
+                     parentMessageBubble.className = `p-3 rounded-lg bg-gray-100 text-gray-600 max-w-3xl mr-auto prose prose-sm max-w-none italic shadow`;
+                    parentMessageBubble.innerHTML = `<p>Execution cancelled by user.</p>`;
+                }
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            });
+
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+            setLoadingState(false); // Ensure main input is usable while confirmation is shown
+        }
+
+        async function executeConfirmedQuery(query) {
+            // setLoadingState(true); // Main input is already re-enabled by addConfirmationMessageToChat, keep it that way.
+                                 // We want the user to be able to type a new query if they wish, while the confirmed one executes.
+                                 // However, we should show a specific loading indicator for this execution if possible, or rely on the message update.
+            // For now, the message update to "Executing..." will serve as the primary indicator.
+
+            try {
+                const response = await fetch('/execute_confirmed_sql', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query: query }),
+                });
+
+                if (!response.ok) {
+                    let errorDetail = `HTTP error! status: ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorDetail = errorData.content || errorData.detail || errorDetail;
+                    } catch (e) { /* Ignore if body isn't JSON */ }
+                    throw new Error(errorDetail);
+                }
+
+                const data = await response.json();
+                let resultMessageHtml = '';
+
+                // Process response from /execute_confirmed_sql (similar to /chat)
+                // The 'assistant' will now deliver the outcome of the confirmed query.
+                if (data.type === 'info') {
+                    resultMessageHtml = renderMarkdown(data.content);
+                } else if (data.type === 'error') {
+                    resultMessageHtml = renderMarkdown(data.content); // Error messages can also contain markdown (like code blocks)
+                    if (data.ai_explanation) {
+                        resultMessageHtml += renderMarkdown(data.ai_explanation); // Render AI explanation as Markdown
+                    }
+                } else if (data.type === 'result') { // Should be rare for this flow but handle
+                    resultMessageHtml += `<p class="font-semibold">Query Executed:</p><pre><code class="language-sql">${escapeHtml(data.query || '')}</code></pre>`;
+                    resultMessageHtml += createTableHtml(data.columns, data.results);
+                    if (data.insights) {
+                        resultMessageHtml += renderMarkdown(data.insights);
+                    }
+                } else {
+                    resultMessageHtml = `<p>${escapeHtml(String(data.content || 'Received unexpected response format.'))}</p>`;
+                }
+                // Add this result as a new message from the assistant
+                addMessageToChat('assistant', resultMessageHtml, data.type);
+
+            } catch (error) {
+                console.error('Error executing confirmed query:', error);
+                addMessageToChat('assistant', `<p>Sorry, I encountered an error during the confirmed execution: ${escapeHtml(error.message)}</p>`, 'error');
+            } finally {
+                // setLoadingState(false); // No need to call setLoadingState(false) here as it wasn't set to true at the start of this func.
+            }
+        }
+        // --- END: Functions for handling query confirmation ---
 
         // --- Configuration Popup Functions ---
         
