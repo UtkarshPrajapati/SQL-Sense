@@ -206,6 +206,75 @@
         .toast-remove {
             animation: toast-out 0.3s ease-in-out forwards;
         }
+
+        /* Autocomplete popup for slash commands */
+        #slash-command-popup {
+            /* Positioned by JS relative to form container */
+            /* min-width: 100px; */ /* Ensure it has some base width */
+            left: 1rem; /* Match p-4 padding of parent container */
+            /* width: calc(100% - 2rem); */ /* Adjust width considering parent padding */
+            /* max-width: 300px; */ /* Optional: prevent it from becoming too wide */
+            width: auto; /* Let it shrink to content */
+            background-color: #3b82f6; /* Tailwind blue-500 */
+            color: white;
+            border-radius: 0.375rem; /* rounded-md */
+            overflow: hidden; /* Ensure inner hover respects rounded corners */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Mimic shadow of other popups/buttons */
+        }
+        #slash-command-popup div {
+            /* padding: 0.5rem 0.75rem; */
+            padding: 0.5rem 1rem; /* py-2 px-4 equivalent */
+            cursor: pointer;
+            text-align: center; /* Center the text like a button */
+        }
+        #slash-command-popup div:hover {
+            background-color: #2563eb; /* Tailwind blue-600 for hover */
+        }
+
+        /* Style for the /run command tag in input */
+        #run-command-tag {
+            flex-shrink: 0; /* Prevent tag from shrinking */
+            border-radius: 0.375rem; /* rounded-md */
+            position: relative; /* For absolute positioning of the close button */
+            overflow: hidden; /* To ensure hover effects confined */
+            transition: background-color 0.2s ease-in-out;
+            margin-left: 0.25rem; /* Added for spacing from left edge of wrapper */
+            margin-right: 0.5rem; /* Added for spacing from the message input */
+        }
+        #run-command-tag::before { /* Overlay for hover effect */
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out, backdrop-filter 0.2s ease-in-out; /* Added backdrop-filter to transition */
+            pointer-events: none; /* Allow clicks to pass through to button */
+            backdrop-filter: blur(0); /* Initial state: no blur */
+            border-radius: inherit; /* Inherit border-radius from parent for proper clipping */
+        }
+        #remove-run-tag-btn {
+            /* display: none; */ /* Hidden by default - now controlled by opacity */
+            opacity: 0;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            line-height: 1; /* Ensure icon aligns well */
+            transition: opacity 0.2s ease-in-out;
+            z-index: 10; /* Ensure it's above the overlay */
+            padding: 0.25rem; /* Add some padding to make it easier to click */
+            border-radius: 9999px; /* Make it circular */
+            background-color: rgba(0,0,0,0.3); /* Slight background for visibility */
+        }
+        #run-command-tag:hover::before {
+            opacity: 1; /* Show overlay on hover */
+            backdrop-filter: blur(2px); /* Apply blur on hover */
+        }
+        #run-command-tag:hover #remove-run-tag-btn {
+            /* display: inline-flex; */ /* Show on hover of the tag */
+            opacity: 1;
+            align-items: center;
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans flex flex-col h-screen">
@@ -289,10 +358,21 @@
             </div>
         </div>
 
-        <div class="mt-auto p-4 bg-white rounded-lg shadow">
+        <div class="mt-auto p-4 bg-white rounded-lg shadow relative">
+            <div id="slash-command-popup" class="absolute bottom-full left-0 mb-1 w-auto bg-white border border-gray-300 rounded-md shadow-lg z-20 hidden">
+                <!-- Suggestions will be added here by JS -->
+            </div>
             <form id="chat-form" class="flex items-center space-x-3">
-                <input type="text" id="message-input" placeholder="Type your message or /run command..." class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-150 ease-in-out" required>
-                <button type="submit" id="send-button" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-lg shadow transition duration-150 ease-in-out flex items-center justify-center">
+                <div id="input-wrapper" class="flex-1 flex items-center border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition duration-150 ease-in-out overflow-hidden">
+                    <span id="run-command-tag" class="hidden bg-blue-600 text-white text-sm font-semibold py-1 px-3 flex items-center cursor-default">
+                        /run
+                        <button type="button" id="remove-run-tag-btn" class="text-blue-200 hover:text-white focus:outline-none p-1">
+                            <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                        </button>
+                    </span>
+                    <input type="text" id="message-input" placeholder="Type your message or /run command..." class="flex-1 px-4 py-2 focus:outline-none bg-transparent h-full text-sm" required>
+                </div>
+                <button type="submit" id="send-button" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-5 rounded-lg shadow transition duration-150 ease-in-out flex items-center justify-center h-10">
                     <span id="send-text">Send</span>
                     <div id="send-spinner" class="hidden">
                         <!-- SVG Spinner will be inserted here by JS -->
@@ -317,6 +397,15 @@
         const configPopup = document.getElementById('config-popup');
         const closeConfigBtn = document.getElementById('close-config-btn');
         const configForm = document.getElementById('config-form');
+
+        // --- Autocomplete /run command elements ---
+        const inputWrapper = document.getElementById('input-wrapper');
+        const runCommandTag = document.getElementById('run-command-tag');
+        const removeRunTagBtn = document.getElementById('remove-run-tag-btn');
+        const slashCommandPopup = document.getElementById('slash-command-popup');
+        let isRunCommandActive = false;
+        const originalPlaceholder = "Type your message or /run command...";
+        const runCommandPlaceholder = "Enter SQL query (e.g., SELECT * FROM users)";
 
         // --- Helper Functions ---
 
@@ -637,60 +726,125 @@
             }
         }
 
+        // --- Autocomplete and /run Tag Functions ---
+        function showRunCommandTag() {
+            runCommandTag.classList.remove('hidden');
+            messageInput.placeholder = runCommandPlaceholder;
+            isRunCommandActive = true;
+            messageInput.value = '';
+            hideSlashCommandPopup();
+            messageInput.focus();
+        }
+
+        function hideRunCommandTag() {
+            runCommandTag.classList.add('hidden');
+            messageInput.placeholder = originalPlaceholder;
+            isRunCommandActive = false;
+            messageInput.value = '';
+            messageInput.focus();
+        }
+
+        function showSlashCommandPopup() {
+            const inputValue = messageInput.value;
+            // console.log("[Debug] inputValue:", inputValue);
+
+            const startsWithSlash = inputValue.startsWith('/');
+            // console.log("[Debug] startsWithSlash:", startsWithSlash);
+
+            const isLengthOne = inputValue.length === 1;
+            // console.log("[Debug] isLengthOne (inputValue.length === 1):", isLengthOne);
+
+            let subStringLower = "";
+            if (inputValue.length > 1) {
+                subStringLower = inputValue.substring(1).toLowerCase();
+            }
+            // console.log("[Debug] subStringLower (inputValue.substring(1).toLowerCase()):", subStringLower);
+
+            const runStartsWithSub = "run".startsWith(subStringLower); // Corrected: removed leading slash from "run"
+            // console.log("[Debug] \"run\".startsWith(subStringLower):", runStartsWithSub);
+
+            const shouldShowPopup = startsWithSlash && (isLengthOne || (inputValue.length > 1 && runStartsWithSub));
+            // console.log("[Debug] Overall condition (startsWithSlash && (isLengthOne || (inputValue.length > 1 && runStartsWithSub))):", shouldShowPopup);
+
+            if (shouldShowPopup) {
+                slashCommandPopup.innerHTML = ''; // Clear previous suggestions
+                const suggestionDiv = document.createElement('div');
+                suggestionDiv.textContent = '/run';
+                suggestionDiv.dataset.command = '/run';
+                suggestionDiv.addEventListener('click', () => {
+                    showRunCommandTag();
+                });
+                slashCommandPopup.appendChild(suggestionDiv);
+                slashCommandPopup.classList.remove('hidden');
+            } else {
+                hideSlashCommandPopup();
+            }
+        }
+
+        function hideSlashCommandPopup() {
+            slashCommandPopup.classList.add('hidden');
+            slashCommandPopup.innerHTML = '';
+        }
+
         // --- Event Listeners ---
 
         chatForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const message = messageInput.value.trim();
-            if (message) {
-                sendMessage(message);
+            const queryPart = messageInput.value.trim();
+            let messageToSend;
+
+            if (isRunCommandActive) {
+                if (queryPart) {
+                    messageToSend = "/run " + queryPart;
+                } else {
+                    showToast("Please enter an SQL query to run.", "warning", 3000);
+                    messageInput.focus();
+                    return;
+                }
+            } else {
+                messageToSend = queryPart;
+            }
+
+            if (messageToSend) {
+                sendMessage(messageToSend);
+                if (isRunCommandActive) {
+                    hideRunCommandTag();
+                }
             }
         });
 
         schemaToggleBtn.addEventListener('click', () => {
-            // Check if it's currently hidden (using max-height as indicator)
             const isHidden = schemaDisplay.classList.contains('max-h-0');
             const dbIcon = document.getElementById('schema-db-icon');
             const upIcon = document.getElementById('schema-up-icon');
             const schemaText = document.getElementById('schema-text');
 
             if (isHidden) {
-                // --- Show Schema ---
-                // Remove hidden state classes
                 schemaDisplay.classList.remove('max-h-0', 'opacity-0', 'p-0', 'border-0', 'overflow-hidden');
-                // Add shown state classes and overflow-y-auto
                 schemaDisplay.classList.add('max-h-48', 'opacity-100', 'p-4', 'border-b', 'overflow-y-auto');
 
-                // Update button icons
                 dbIcon.classList.add('hidden');
                 upIcon.classList.remove('hidden');
                 schemaText.textContent = 'Hide Schema';
 
-                // Fetch schema only if it hasn't been loaded or if forced refresh
-                const currentHTML = schemaContent.innerHTML; // Use innerHTML for .includes() checks
+                const currentHTML = schemaContent.innerHTML;
                 const trimmedContent = currentHTML.trim();
 
                 const isEmptyOrPlaceholder = trimmedContent.startsWith("<!--") || trimmedContent === "";
-                // Check for the specific loading message set by fetchSchema
                 const isLoading = currentHTML.includes('Loading schema...');
-                // Check for specific error/failure messages set by fetchSchema or backend
                 const hasFailedOrIsEmptyBackend = currentHTML.includes('Failed to load schema') ||
                                   currentHTML.includes('Error fetching schema') ||
                                   currentHTML.includes('No databases or tables found, or unable to fetch schema') ||
-                                  currentHTML.includes('No databases or tables found.'); // Covers empty but successful fetch
+                                  currentHTML.includes('No databases or tables found.');
 
                 const needsFetching = isEmptyOrPlaceholder || isLoading || hasFailedOrIsEmptyBackend;
                 if (needsFetching) {
                    fetchSchema();
                 }
             } else {
-                // --- Hide Schema ---
-                // Remove shown state classes
                 schemaDisplay.classList.remove('max-h-48', 'opacity-100', 'p-4', 'border-b', 'overflow-y-auto');
-                // Add hidden state classes and overflow-hidden
                 schemaDisplay.classList.add('max-h-0', 'opacity-0', 'p-0', 'border-0', 'overflow-hidden');
 
-                // Update button icons
                 dbIcon.classList.remove('hidden');
                 upIcon.classList.add('hidden');
                 schemaText.textContent = 'View Schema';
@@ -698,32 +852,24 @@
         });
 
         refreshSchemaBtn.addEventListener('click', () => {
-            fetchSchema(true); // Force refresh with loading indicator
+            fetchSchema(true);
         });
         
-        // Configuration popup event handlers
         configToggleBtn.addEventListener('click', () => {
             const settingsIcon = document.getElementById('settings-icon');
             
-            // Toggle config popup visibility
             if (configPopup.classList.contains('visible')) {
-                // Start closing animation - rotate counter-clockwise
                 configPopup.classList.remove('visible');
                 
-                // Reset any existing animation class first
                 settingsIcon.classList.remove('settings-icon-rotate-cw');
-                // Add counter-clockwise rotation
                 settingsIcon.classList.add('settings-icon-rotate-ccw');
             } else {
-                // Start opening animation - rotate clockwise
                 configPopup.classList.add('visible');
                 
-                // Reset any existing animation class first
                 settingsIcon.classList.remove('settings-icon-rotate-ccw');
-                // Add clockwise rotation
                 settingsIcon.classList.add('settings-icon-rotate-cw');
                 
-                loadConfig(); // Load saved config when opening
+                loadConfig();
             }
         });
         
@@ -743,60 +889,40 @@
             configPopup.classList.remove('visible');
         });
 
+        messageInput.addEventListener('input', () => {
+            const inputValue = messageInput.value;
+            if (isRunCommandActive) {
+                hideSlashCommandPopup();
+                return;
+            }
+
+            if (inputValue.startsWith('/')) {
+                showSlashCommandPopup();
+                if (inputValue === "/run ") {
+                    showRunCommandTag();
+                }
+            } else {
+                hideSlashCommandPopup();
+            }
+        });
+
+        removeRunTagBtn.addEventListener('click', () => {
+            hideRunCommandTag();
+        });
+        
+        document.addEventListener('click', function(event) {
+            if (!slashCommandPopup.classList.contains('hidden')) {
+                const isClickInsidePopup = slashCommandPopup.contains(event.target);
+                const isClickOnInput = messageInput.contains(event.target);
+                if (!isClickInsidePopup && !isClickOnInput) {
+                    hideSlashCommandPopup();
+                }
+            }
+        });
+
         // --- Initial Setup ---
 
-        // Function to show toast notifications
-        function showToast(message, type = 'info', duration = 5000) {
-            const toastContainer = document.getElementById('toast-container');
-            if (!toastContainer) return;
-            
-            // Create toast element
-            const toast = document.createElement('div');
-            toast.className = `toast toast-${type}`;
-            
-            // Create content and close button
-            const content = document.createElement('div');
-            content.className = 'toast-content';
-            content.textContent = message;
-            
-            const closeBtn = document.createElement('button');
-            closeBtn.className = 'toast-close';
-            closeBtn.innerHTML = '&times;';
-            closeBtn.addEventListener('click', () => removeToast(toast));
-            
-            // Assemble toast
-            toast.appendChild(content);
-            toast.appendChild(closeBtn);
-            toastContainer.appendChild(toast);
-            
-            // Only set auto-remove timer for success and info toasts
-            // Warning and error toasts stay until manually closed
-            if (duration > 0 && (type === 'success' || type === 'info')) {
-                setTimeout(() => removeToast(toast), duration);
-            }
-            
-            return toast;
-        }
-
-        function removeToast(toast) {
-            if (!toast) return;
-            
-            // Add fade-out animation class
-            toast.classList.add('toast-remove');
-            
-            // Remove from DOM after animation completes
-            setTimeout(() => {
-                if (toast.parentNode) {
-                    toast.parentNode.removeChild(toast);
-                }
-            }, 300); // Match animation duration
-        }
-
-        // Render initial icons
         lucide.createIcons();
-
-        // Optionally fetch schema on load, but maybe better behind the button click
-        // fetchSchema();
     </script>
 </body>
 </html>
