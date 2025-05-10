@@ -18,7 +18,7 @@ import functools
 # --- Configuration ---
 load_dotenv() # Load environment variables from .env file
 
-# Logging Configuration - moved to the top
+# Logging Configuration
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -59,25 +59,11 @@ def initialize_gemini_api():
 # Initialize Gemini API on startup
 initialize_gemini_api()
 
-# ADDED: Decorator to check Gemini API initialization
-def ensure_gemini_initialized(func):
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        if not gemini_initialized:
-            # Log the issue, the function itself will return an error message string
-            logger.warning(f"Gemini API not initialized. Call to {func.__name__} will be skipped.")
-            # Depending on the function's expected return type, you might return a specific error object/string.
-            # For these functions, they are expected to return a string, so we return an error string.
-            return "Error: Gemini API not configured. Please set up your API key in the configuration."
-        return func(*args, **kwargs)
-    return wrapper
-
 # Function to update environment variables and .env file
 def update_environment(config_data):
     """Updates environment variables and .env file with new configurations."""
     global MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE, GEMINI_API_KEY
     
-    # Define default values for each configuration
     defaults = {
         "mysql_host": "localhost",
         "mysql_user": "root",
@@ -86,7 +72,6 @@ def update_environment(config_data):
         "gemini_api_key": ""
     }
     
-    # Update environment variables with non-empty values or defaults
     if "mysql_host" in config_data and config_data["mysql_host"]:
         MYSQL_HOST = config_data["mysql_host"]
     else:
@@ -114,20 +99,16 @@ def update_environment(config_data):
     if "gemini_api_key" in config_data and config_data["gemini_api_key"]:
         GEMINI_API_KEY = config_data["gemini_api_key"]
         os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
-        # Reinitialize Gemini API with new key
-        initialize_gemini_api()
+        initialize_gemini_api() # Reinitialize Gemini API with new key
     
-    # Update .env file
     update_env_file(config_data, defaults)
-    
     logger.info("Environment variables updated with new configuration")
 
 # Function to update .env file
 def update_env_file(config_data, defaults):
     """Updates .env file with new configuration data."""
     try:
-        # Create a new .env file if it doesn't exist
-        if not os.path.exists(ENV_FILE_PATH):
+        if not os.path.exists(ENV_FILE_PATH): # Create a new .env file if it doesn't exist
             with open(ENV_FILE_PATH, "w") as env_file:
                 env_file.write(f"MYSQL_HOST={config_data.get('mysql_host', defaults['mysql_host'])}\n")
                 env_file.write(f"MYSQL_USER={config_data.get('mysql_user', defaults['mysql_user'])}\n")
@@ -136,8 +117,7 @@ def update_env_file(config_data, defaults):
                 env_file.write(f"GEMINI_API_KEY={config_data.get('gemini_api_key', defaults['gemini_api_key'])}\n")
                 logger.info("Created .env file with new configuration")
         else:
-            # Read existing .env file
-            try:
+            try: # Read existing .env file
                 with open(ENV_FILE_PATH, "r") as env_file:
                     lines = env_file.readlines()
             except Exception as e:
@@ -202,8 +182,7 @@ def update_env_file(config_data, defaults):
                     elif key == "GEMINI_API_KEY":
                         updated_lines.append(f"GEMINI_API_KEY={config_data.get('gemini_api_key', defaults['gemini_api_key'])}\n")
             
-            # Write updated .env file
-            with open(ENV_FILE_PATH, "w") as env_file:
+            with open(ENV_FILE_PATH, "w") as env_file: # Write updated .env file
                 env_file.writelines(updated_lines)
                 logger.info("Updated .env file with new configuration")
     except Exception as e:
@@ -211,19 +190,19 @@ def update_env_file(config_data, defaults):
 
 # --- Database Interaction ---
 
-# MODIFY get_db_connection to accept optional db_name
 def get_db_connection(db_name: Optional[str] = None):
     """
     Establishes a connection to the MySQL server.
     Connects to a specific database if db_name is provided.
+    Returns the connection object or None if connection fails.
     """
     try:
         conn_params = {
             'host': MYSQL_HOST,
             'user': MYSQL_USER,
             'password': MYSQL_PASSWORD,
-            'pool_name': "mypool", # Optional: Use connection pooling
-            'pool_size': 5,       # Optional: Pool size
+            'pool_name': "mypool", 
+            'pool_size': 5,
             'auth_plugin': 'mysql_native_password'
         }
         if db_name:
@@ -234,9 +213,8 @@ def get_db_connection(db_name: Optional[str] = None):
         return conn
     except mysql.connector.Error as err:
         logger.error(f"Database connection error (connecting to {db_name or 'server'}): {err}")
-        # Don't raise HTTPException here directly, let caller handle None return or raise
-        # raise HTTPException(status_code=500, detail=f"Database connection failed: {err}")
-        return None # Return None on connection failure
+        return None 
+
 def execute_sql_query(query: str) -> Tuple[Optional[List[Tuple]], Optional[List[str]], Optional[str], int, Optional[str]]:
     """
     Executes an SQL query against the database.
@@ -255,15 +233,13 @@ def execute_sql_query(query: str) -> Tuple[Optional[List[Tuple]], Optional[List[
     logger.info(f"Executing Query: {query}")
     conn = None
     cursor = None
-    results: Optional[List[Tuple]] = None # Initialize results
+    results: Optional[List[Tuple]] = None
     column_names: Optional[List[str]] = None
     column_types_str: Optional[str] = None
 
     try:
-        # Connect WITHOUT specifying a default database
-        conn = get_db_connection(db_name=None)
+        conn = get_db_connection(db_name=None) # Connect WITHOUT specifying a default database
         if not conn:
-            # Handle connection failure
             error_message = "SQL Error: Failed to connect to the database server for query execution."
             logger.error(error_message)
             return None, None, None, 3, error_message
@@ -283,28 +259,22 @@ def execute_sql_query(query: str) -> Tuple[Optional[List[Tuple]], Optional[List[
         query_lower = query.strip().lower()
         if query_lower.startswith("select") or query_lower.startswith("show"):
             results = cursor.fetchmany(100) # Limit results for display
-            if cursor.description: # Check if description exists (it might not for some SHOW commands)
+            if cursor.description: 
                 column_names = [i[0] for i in cursor.description]
-                # Ensure FieldType is imported or defined
-                from mysql.connector.constants import FieldType
+                from mysql.connector.constants import FieldType # Ensure FieldType is imported
                 col_dtypes = [[i[0], FieldType.get_info(i[1])] for i in cursor.description]
                 column_types_str = 'Column : Dtype\n' + '\n'.join(f'{k}: {v}' for k, v in col_dtypes)
             else:
-                column_names = ["Result"] # Default column name if description is unavailable
+                column_names = ["Result"] 
                 column_types_str = "Column : Dtype\nResult: <unknown>"
-                # Adjust results structure if needed based on the specific SHOW command
-                # Check if results is not None and not empty before accessing results[0]
-                if results and isinstance(results[0], (str, int, float, bytes)): # Added bytes type
+                if results and isinstance(results[0], (str, int, float, bytes)): 
                      results = [(r,) for r in results] # Wrap single values in tuples
 
-            # conn is guaranteed to be non-None here due to the check above
             conn.commit() # Necessary even for SELECT with some configurations/engines
-            # results is guaranteed to be a list (possibly empty) by fetchmany
             result_count = len(results) if results is not None else 0
             logger.info(f"Query executed successfully, fetched {result_count} rows.")
             return results, column_names, column_types_str, 1, None
         else:
-            # conn is guaranteed to be non-None here
             conn.commit()
             logger.info("Non-SELECT/SHOW query executed successfully.")
             return None, None, None, 2, None # Success for non-select queries
@@ -312,8 +282,7 @@ def execute_sql_query(query: str) -> Tuple[Optional[List[Tuple]], Optional[List[
     except mysql.connector.Error as e:
         logger.error(f"SQL Error executing query '{query}': {e}")
         error_message = f"SQL Error: {e}"
-        # Rollback changes if an error occurs during non-select queries
-        if conn:
+        if conn: # Rollback changes if an error occurs during non-select queries
             try:
                 conn.rollback()
             except mysql.connector.Error as rb_err:
@@ -322,8 +291,7 @@ def execute_sql_query(query: str) -> Tuple[Optional[List[Tuple]], Optional[List[
     except Exception as e:
         logger.error(f"Unexpected error executing query '{query}': {e}", exc_info=True)
         error_message = f"Unexpected Error: {e}"
-        # Rollback changes if an unexpected error occurs
-        if conn:
+        if conn: # Rollback changes if an unexpected error occurs
              try:
                  conn.rollback()
              except mysql.connector.Error as rb_err:
@@ -332,35 +300,29 @@ def execute_sql_query(query: str) -> Tuple[Optional[List[Tuple]], Optional[List[
     finally:
         if cursor:
             cursor.close()
-        # Check conn exists and is connected before closing
-        if conn and conn.is_connected():
+        if conn and conn.is_connected(): # Check conn exists and is connected before closing
             conn.close()
             logger.info("DB connection closed.")
 
-
-# REWRITE fetch_all_tables_and_columns to fetch from multiple databases
 def fetch_all_tables_and_columns() -> Dict[str, Dict[str, List[str]]]:
     """
     Fetches all non-system databases, their tables, and columns.
     Returns: Dict[db_name, Dict[table_name, List[column_name]]]
+    Returns an error structure if connection or queries fail.
     """
     schema_info: Dict[str, Dict[str, List[str]]] = {}
     conn = None
     cursor = None
-    # Exclude system databases
-    system_databases = {'information_schema', 'mysql', 'performance_schema', 'sys'}
+    system_databases = {'information_schema', 'mysql', 'performance_schema', 'sys'} # Exclude system databases
 
     try:
-        # Connect without specifying a database
-        conn = get_db_connection(db_name=None)
+        conn = get_db_connection(db_name=None) # Connect without specifying a database
         if not conn:
              logger.error("Failed to get DB connection for schema fetching.")
              return {"error": {"schema": ["Failed to connect to the database server."]}}
 
         cursor = conn.cursor()
-
-        # Get all databases
-        cursor.execute("SHOW DATABASES;")
+        cursor.execute("SHOW DATABASES;") # Get all databases
         fetch_result = cursor.fetchall()
         if fetch_result is None:
             logger.warning("No databases returned from SHOW DATABASES query.")
@@ -369,10 +331,9 @@ def fetch_all_tables_and_columns() -> Dict[str, Dict[str, List[str]]]:
 
         if not databases:
             logger.warning("No user databases found.")
-            return {} # Return empty if no relevant databases
+            return {} 
 
-        # Get tables and columns for each relevant database
-        for db_name in databases:
+        for db_name in databases: # Get tables and columns for each relevant database
             schema_info[db_name] = {}
             try:
                 cursor.execute(f"SHOW TABLES FROM `{db_name}`;")
@@ -399,15 +360,14 @@ def fetch_all_tables_and_columns() -> Dict[str, Dict[str, List[str]]]:
 
             except mysql.connector.Error as e:
                  logger.warning(f"Could not fetch tables for database {db_name}: {e}")
-                 # Add an error placeholder for the database if tables couldn't be listed
-                 schema_info[db_name] = {"error": [f"Error fetching tables: {e}"]}
+                 schema_info[db_name] = {"error": [f"Error fetching tables: {e}"]} # Add an error placeholder
 
         logger.info(f"Fetched schema for {len(databases)} databases.")
         return schema_info
 
     except mysql.connector.Error as e:
         logger.error(f"SQL Error fetching database list: {e}")
-        return {"error": {"schema": [f"SQL Error fetching databases: {e}"]}} # Indicate error in schema structure
+        return {"error": {"schema": [f"SQL Error fetching databases: {e}"]}} 
     except Exception as e:
         logger.error(f"Error fetching schema: {e}", exc_info=True)
         return {"error": {"schema": [f"Unexpected error fetching schema: {str(e)}"]}}
@@ -419,21 +379,28 @@ def fetch_all_tables_and_columns() -> Dict[str, Dict[str, List[str]]]:
 
 # --- Gemini API Interaction ---
 
-# MODIFY schema_string generation in generate_sql_with_gemini
+# Decorator to check Gemini API initialization
+def ensure_gemini_initialized(func):
+    """Decorator to ensure Gemini API is initialized before calling the wrapped function."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if not gemini_initialized:
+            logger.warning(f"Gemini API not initialized. Call to {func.__name__} will be skipped.")
+            # Functions decorated are expected to return a string, so return an error string.
+            return "Error: Gemini API not configured. Please set up your API key in the configuration."
+        return func(*args, **kwargs)
+    return wrapper
+
 @ensure_gemini_initialized
 def generate_sql_with_gemini(user_query: str, schema: Dict[str, Dict[str, List[str]]]) -> Optional[str]:
     """Generates an SQL query using the Gemini API based on user input and multi-DB schema."""
-    # Check if Gemini API is initialized - REMOVED, HANDLED BY DECORATOR
-    # if not gemini_initialized:
-    #     return "Error: Gemini API not configured. Please set up your API key in the configuration."
-        
     schema_string = ""
-    if not schema or "error" in schema: # Check for top-level error
+    if not schema or "error" in schema: 
          schema_string = "Could not fetch schema. Please ensure database connection is correct."
     else:
         for db_name, tables in schema.items():
             schema_string += f"\nDatabase: `{db_name}`\n"
-            if isinstance(tables, dict): # Check if it's a dictionary of tables or an error list
+            if isinstance(tables, dict): 
                 if not tables:
                      schema_string += "  (No tables found or accessible)\n"
                 elif "error" in tables:
@@ -443,9 +410,7 @@ def generate_sql_with_gemini(user_query: str, schema: Dict[str, Dict[str, List[s
                         col_string = ', '.join([f"`{c}`" for c in columns])
                         schema_string += f"  - Table: `{table_name}`: Columns: {col_string}\n"
             else:
-                 # Handle case where schema[db_name] might be an error list itself (though unlikely with current fetch logic)
                  schema_string += f"  Error retrieving table details for this database.\n"
-
 
     prompt = f"""You are an expert SQL assistant. Given the following database schema across potentially multiple databases and a user question, generate the most appropriate SQL query to answer the question.
 
@@ -464,49 +429,40 @@ Instructions:
 
 SQL Query:"""
 
-    # --- rest of the function remains the same ---
     try:
         model = genai.GenerativeModel(GEMINI_MODEL_NAME)
         response = model.generate_content(prompt)
 
-        # Clean up potential markdown formatting just in case
-        sql_query = response.text.strip()
+        sql_query = response.text.strip() # Clean up potential markdown formatting
         if sql_query.startswith("```sql"):
             sql_query = sql_query[6:]
         if sql_query.endswith("```"):
             sql_query = sql_query[:-3]
-        sql_query = sql_query.strip() # Remove leading/trailing whitespace
+        sql_query = sql_query.strip() 
 
         logger.info(f"Gemini generated SQL: {sql_query}")
         if sql_query.lower().startswith("error:"):
              logger.warning(f"Gemini indicated an error: {sql_query}")
-             # Return the error message from Gemini
-             return sql_query # Return the error string itself
+             return sql_query 
 
-        # Basic validation (prevent obviously non-SQL responses)
-        # Allow for USE statement as well
+        # Basic validation
         if not any(kw in sql_query.lower() for kw in ["select", "insert", "update", "delete", "show", "create", "alter", "drop", "use"]):
              logger.warning(f"Generated text doesn't look like SQL: {sql_query}")
-             return "Error: Generated text does not appear to be a valid SQL query." # Return an error string
+             return "Error: Generated text does not appear to be a valid SQL query."
 
         return sql_query
 
     except Exception as e:
         logger.error(f"Error calling Gemini API for SQL generation: {e}", exc_info=True)
-        return "Error: Failed to communicate with the AI model for SQL generation." # Return an error string
+        return "Error: Failed to communicate with the AI model for SQL generation."
 
 @ensure_gemini_initialized
 def get_insights_with_gemini(original_query: str, sql_query: str, results: List[Tuple], columns: List[str], col_types: str) -> str:
     """Generates insights on the data using the Gemini API."""
-    # Check if Gemini API is initialized - REMOVED, HANDLED BY DECORATOR
-    # if not gemini_initialized:
-    #     return "Insights not available: Gemini API not configured."
-        
     if not results:
         return "No results to analyze."
 
-    # Limit results sent to Gemini to avoid exceeding token limits
-    results_preview = json.dumps(results[:20], indent=2, default=str) # Send first 20 rows as JSON
+    results_preview = json.dumps(results[:20], indent=2, default=str) # Limit results sent to Gemini
 
     prompt = f"""You are a data analyst assistant. A user asked the following question:
 "{original_query}"
@@ -540,14 +496,9 @@ Analysis:"""
         logger.error(f"Error calling Gemini API for insights: {e}", exc_info=True)
         return "Error generating insights from the AI model."
 
-# ADD New function for conversational responses
 @ensure_gemini_initialized
 def get_conversational_response_with_gemini(user_message: str) -> str:
-    """Gets a conversational response from Gemini."""
-    # Check if Gemini API is initialized - REMOVED, HANDLED BY DECORATOR
-    # if not gemini_initialized:
-    #     return "I'm sorry, but the Gemini API is not configured. Please set up your API key in the configuration."
-        
+    """Gets a conversational response from Gemini for non-SQL related queries."""
     logger.info(f"Getting conversational response for: {user_message}")
     prompt = f"""You are a helpful assistant. Respond conversationally and politely to the following user message. Do not attempt to generate SQL or refer to databases unless the user explicitly asks about them in this message.
 
@@ -556,10 +507,8 @@ User Message: "{user_message}"
 Assistant Response:"""
 
     try:
-        # Use the same model or potentially a different one optimized for chat if needed
         model = genai.GenerativeModel(GEMINI_MODEL_NAME)
         response = model.generate_content(prompt)
-        # Add basic safety check
         if response.prompt_feedback and response.prompt_feedback.block_reason:
              logger.warning(f"Conversational response blocked. Reason: {response.prompt_feedback.block_reason}")
              return "I cannot provide a response to that topic."
@@ -570,13 +519,9 @@ Assistant Response:"""
         logger.error(f"Error calling Gemini API for conversational response: {e}", exc_info=True)
         return "I'm having trouble responding right now. Please try again later."
 
-# ADDED: New Gemini function for explaining SQL errors
 @ensure_gemini_initialized
 def get_error_explanation_with_gemini(original_user_query: Optional[str], failed_sql_query: str, error_message: str) -> str:
     """Generates a user-friendly explanation for an SQL error using Gemini."""
-    # if not gemini_initialized: # Handled by decorator
-    #     return "AI explanation unavailable: Gemini API not configured."
-
     prompt_context = f"User's original request (if available): \"{original_user_query}\"\n"
     if not original_user_query:
         prompt_context = "The user was attempting to execute a specific SQL query.\n"
@@ -614,44 +559,36 @@ Explanation:"""
         logger.error(f"Error calling Gemini API for SQL error explanation: {e}", exc_info=True)
         return "Error generating AI explanation for the SQL error."
 
-# --- FastAPI Application ---
+# Helper function to identify modifying queries
+def is_modifying_query(sql_query: str) -> bool:
+    """Checks if the SQL query is likely to modify data or database structure."""
+    query_lower = sql_query.strip().lower()
+    modifying_keywords = [
+        "insert", "update", "delete", "create", "alter", "drop", "truncate",
+        "replace", "merge", "upsert"
+    ]
+    return any(keyword in query_lower for keyword in modifying_keywords)
 
-app = FastAPI(title="SQL Assistant with Gemini")
-
-# Mount static files (for CSS, JS if needed later)
-# app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Setup Jinja2 templates
-templates = Jinja2Templates(directory=".") # Expect index.html in the same directory
-
+# --- Pydantic Models ---
 class ChatRequest(BaseModel):
     message: str
 
-# Add ConfigRequest model
+
 class ConfigRequest(BaseModel):
     mysql_host: str
     mysql_user: str
     mysql_password: str
     gemini_api_key: str
 
-# ADDED: Model for confirmed execution request
+
 class ConfirmedExecutionRequest(BaseModel):
     query: str
 
-# ADDED: Helper function to identify modifying queries
-def is_modifying_query(sql_query: str) -> bool:
-    """Checks if the SQL query is likely to modify data or structure."""
-    query_lower = sql_query.strip().lower()
-    # Common keywords for DML and DDL that modify data/structure
-    # Excludes SELECT, SHOW, DESCRIBE, EXPLAIN, USE (USE changes session state but isn't data destructive)
-    modifying_keywords = [
-        "insert", "update", "delete", "create", "alter", "drop", "truncate",
-        "replace", "merge", "upsert" # Added more comprehensive keywords
-    ]
-    # Ensure we don't misclassify SELECT ... INTO OUTFILE or similar if not intended.
-    # For now, simple keyword check is the goal.
-    # Avoid flagging common clauses within SELECTs if they share a keyword (less likely with this list).
-    return any(keyword in query_lower for keyword in modifying_keywords)
+
+# --- FastAPI Application ---
+
+app = FastAPI(title="SQL Assistant with Gemini")
+templates = Jinja2Templates(directory=".") # Expect index.html in the root directory
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
@@ -663,17 +600,14 @@ async def get_schema():
     """API endpoint to fetch the current database schema."""
     schema = fetch_all_tables_and_columns()
     if "error" in schema:
-         # Return a specific error status if schema fetching failed critically
-         # For now, returning 200 but with error content
+         # Returning 200 but with error content for client-side handling
          return JSONResponse(content={"schema": schema}, status_code=200)
     return JSONResponse(content={"schema": schema})
 
-# Add config endpoint
 @app.post("/config", response_class=JSONResponse)
 async def update_config(config_request: ConfigRequest):
-    """Updates application configuration."""
+    """Updates application configuration and tests connections."""
     try:
-        # Apply defaults for empty values
         mysql_host = config_request.mysql_host if config_request.mysql_host else "localhost"
         mysql_user = config_request.mysql_user if config_request.mysql_user else "root"
         mysql_password = config_request.mysql_password if config_request.mysql_password else "root"
@@ -686,8 +620,8 @@ async def update_config(config_request: ConfigRequest):
             "gemini_api_key": gemini_api_key
         }
         
-        # Test MySQL connection
-        try:
+        mysql_status = "failed: unknown"
+        try: # Test MySQL connection
             conn = mysql.connector.connect(
                 host=mysql_host,
                 user=mysql_user,
@@ -700,16 +634,12 @@ async def update_config(config_request: ConfigRequest):
             logger.error(f"Failed to connect with new MySQL credentials: {err}")
             mysql_status = f"failed: {err}"
             
-        # Test Gemini API key
+        gemini_status = "failed: unknown"
         original_key = GEMINI_API_KEY
-        gemini_status = "success"
-        
-        try:
-            # Temporarily set the new key
+        try: # Test Gemini API key
             os.environ["GEMINI_API_KEY"] = gemini_api_key
             genai.configure(api_key=gemini_api_key)
             test_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-            # Try a simple test generation
             test_response = test_model.generate_content("Hello")
             if test_response.text:
                 gemini_status = "success"
@@ -718,19 +648,18 @@ async def update_config(config_request: ConfigRequest):
         except Exception as e:
             logger.error(f"Failed to initialize Gemini API with new key: {e}")
             gemini_status = f"failed: {e}"
-            # Restore the original key
+            # Restore the original key if test failed
             os.environ["GEMINI_API_KEY"] = original_key
-            initialize_gemini_api()
+            if original_key: initialize_gemini_api() 
         
-        # Update environment and .env file with new config
-        update_environment(config_data)
+        update_environment(config_data) # Update environment and .env file
         
         return JSONResponse(content={
             "status": "success",
             "mysql_connection": mysql_status,
             "gemini_api": gemini_status,
-            "message": "Configuration updated and applied immediately. No restart required.",
-            "restart_needed": False
+            "message": "Configuration updated. Check connection statuses.",
+            "restart_needed": False 
         })
         
     except Exception as e:
@@ -742,24 +671,21 @@ async def update_config(config_request: ConfigRequest):
 
 @app.post("/chat", response_class=JSONResponse)
 async def handle_chat(chat_request: ChatRequest):
-    """Handles user messages, interacts with DB and Gemini."""
+    """Handles user messages, directs to SQL generation or conversational response, and executes SQL."""
     user_message = chat_request.message.strip()
     response_data: Dict[str, Any] = {"type": "error", "content": "An unexpected error occurred."}
-    query_to_run = None # Initialize query_to_run
-    schema = None # Initialize schema
-    generated_sql_for_confirmation = None # To hold SQL that needs confirmation
+    query_to_run = None 
+    schema = None 
 
     try:
         if user_message.lower().startswith("/run "):
-            # Direct SQL execution
-            query_to_run = user_message[5:].strip() # Get query after "/run "
+            query_to_run = user_message[5:].strip() 
             if not query_to_run:
                 response_data = {"type": "error", "content": "No query provided after /run command."}
                 return JSONResponse(content=response_data)
         else:
-            # Natural language query -> Attempt SQL Generation FIRST
             logger.info(f"Processing natural language query: {user_message}")
-            schema = fetch_all_tables_and_columns() # Fetch schema once
+            schema = fetch_all_tables_and_columns() 
             if "error" in schema:
                  error_msg = "Could not fetch database schema to process your request."
                  if schema.get("error", {}).get("schema"):
@@ -769,24 +695,19 @@ async def handle_chat(chat_request: ChatRequest):
 
             generated_sql = generate_sql_with_gemini(user_message, schema)
 
-            # --- MODIFICATION START: Check for specific error to fallback ---
             specific_sql_error = "Error: Cannot answer question with available schema."
             if generated_sql == specific_sql_error:
                 logger.info(f"SQL generation returned '{specific_sql_error}'. Falling back to conversational response.")
                 conversational_response = get_conversational_response_with_gemini(user_message)
                 response_data = {"type": "info", "content": conversational_response}
                 return JSONResponse(content=jsonable_encoder(response_data))
-            # --- MODIFICATION END ---
-
-            # If it wasn't the specific error, proceed with SQL path checks
             elif not generated_sql:
-                response_data = {"type": "error", "content": "The AI model could not generate an SQL query for your request. Please try rephrasing or check model availability."}
+                response_data = {"type": "error", "content": "The AI model could not generate an SQL query. Please try rephrasing."}
                 return JSONResponse(content=response_data)
-            elif generated_sql.lower().startswith("error:"): # Handle other specific errors from generation
+            elif generated_sql.lower().startswith("error:"): 
                  response_data = {"type": "error", "content": generated_sql}
                  return JSONResponse(content=response_data)
             else:
-                # --- NEW: Check if generated SQL is modifying ---
                 if is_modifying_query(generated_sql):
                     logger.info(f"Generated modifying SQL, requires confirmation: {generated_sql}")
                     response_data = {
@@ -796,15 +717,11 @@ async def handle_chat(chat_request: ChatRequest):
                     }
                     return JSONResponse(content=jsonable_encoder(response_data))
                 else:
-                    # If SQL was generated successfully and is not modifying, assign it to be run
                     query_to_run = generated_sql
         
-        # If we have a query_to_run (either from /run or non-modifying AI gen)
         if query_to_run:
-            # --- Logic to handle plain "SHOW TABLES;" (remains the same) ---
             if query_to_run.strip().lower() == 'show tables;':
                 logger.info("Detected plain 'SHOW TABLES;' query. Checking database context...")
-                # Use schema fetched earlier if available
                 current_schema = schema or fetch_all_tables_and_columns()
                 user_databases = [
                     db for db, tables in current_schema.items()
@@ -818,32 +735,28 @@ async def handle_chat(chat_request: ChatRequest):
                     logger.warning("Multiple user databases exist. Cannot execute plain 'SHOW TABLES;'.")
                     response_data = {
                         "type": "error",
-                        "content": f"Please specify which database's tables you want to see. Multiple databases found: {', '.join(user_databases)}. \\nTry 'show tables from database_name;' or ask like 'what tables are in {user_databases[0]}?'."
+                        "content": f"Please specify which database's tables you want to see. Multiple databases found: {', '.join(user_databases)}. \nTry 'show tables from database_name;' or ask like 'what tables are in {user_databases[0]}?'."
                     }
                     return JSONResponse(content=jsonable_encoder(response_data))
-                else:
+                else: # No user databases found
                     logger.warning("No user databases found to execute 'SHOW TABLES;' against.")
                     response_data = { "type": "error", "content": "No user databases found or accessible. Cannot show tables." }
                     return JSONResponse(content=jsonable_encoder(response_data))
 
-            # --- Execution logic (remains largely the same) ---
             logger.info(f"Executing final query: {query_to_run}")
             results, columns, col_types, status, db_error = execute_sql_query(query_to_run)
             
             if status == 3: # SQL Error
                  error_content = f"SQL Error: {db_error or 'Query execution failed.'}"
                  ai_explanation = ""
-                 # Add context for generated SQL if it was the one that failed
                  if 'generated_sql' in locals() and generated_sql == query_to_run:
                      error_content = f"Generated SQL failed to execute:\n```sql\n{generated_sql}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
                      ai_explanation = get_error_explanation_with_gemini(original_user_query=user_message, failed_sql_query=generated_sql, error_message=str(db_error))
-                 elif 'generated_sql' in locals() and query_to_run.endswith(generated_sql): # Check if it's the modified version
-                     error_content = f"Generated SQL (modified with USE) failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
-                     # Passing user_message, as it was the origin for the generated_sql part
+                 elif 'generated_sql' in locals() and query_to_run.endswith(generated_sql): # Check if it's the modified version (e.g. with USE prepended)
+                     error_content = f"Generated SQL (modified) failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
                      ai_explanation = get_error_explanation_with_gemini(original_user_query=user_message, failed_sql_query=query_to_run, error_message=str(db_error))
-                 else: # For /run commands or other cases
+                 else: # For /run commands 
                      error_content = f"Query failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
-                     # For /run, the original query *is* the query_to_run. No separate user_message for AI context.
                      ai_explanation = get_error_explanation_with_gemini(original_user_query=None, failed_sql_query=query_to_run, error_message=str(db_error))
                  response_data = {"type": "error", "content": error_content, "ai_explanation": ai_explanation}
 
@@ -856,33 +769,28 @@ async def handle_chat(chat_request: ChatRequest):
                      if user_message.lower().startswith("/run "): original_user_intent = f"Direct execution: {user_message[5:].strip()}"
                      insights = get_insights_with_gemini(original_query=original_user_intent, sql_query=query_to_run, results=results, columns=columns, col_types=col_types)
                  response_data = {"type": "result", "query": query_to_run, "columns": columns, "results": results, "insights": insights }
-            else: # Should not happen
+            else: 
                  response_data = {"type": "error", "content": "Unknown query execution status."}
         else:
              # This path is reached if AI generation resulted in a query requiring confirmation,
-             # and that confirmation response was already sent.
-             # Or if /run was empty and handled, or if generate_sql_with_gemini returned an error that was handled.
-             # No further action needed here as the response should have been sent.
-             # If response_data is still default, it means an unhandled path.
+             # and that confirmation response was already sent. Or other early exits.
              if response_data.get("content") == "An unexpected error occurred.":
-                 logger.error("Reached end of handler without a query to execute or a confirmation response being sent.")
+                 logger.error("Reached end of handler without a query to execute or a specific response being sent.")
                  response_data = {"type": "error", "content": "Could not determine an action for your message."}
 
         return JSONResponse(content=jsonable_encoder(response_data))
     
     except HTTPException as http_exc:
         logger.error(f"HTTP Exception: {http_exc.detail}")
-        # Re-raise HTTPException to let FastAPI handle it
-        raise http_exc
+        raise http_exc # Re-raise HTTPException to let FastAPI handle it
     except Exception as e:
         logger.critical(f"Unhandled error in /chat endpoint: {e}", exc_info=True)
-        # Return a generic server error response
         response_data = {"type": "error", "content": f"An internal server error occurred: {e}"}
         return JSONResponse(content=response_data, status_code=500)
 
-# ADDED: New endpoint for executing confirmed SQL
 @app.post("/execute_confirmed_sql", response_class=JSONResponse)
 async def handle_confirmed_sql(request: ConfirmedExecutionRequest):
+    """Executes a SQL query that has been confirmed by the user."""
     query_to_run = request.query.strip()
     response_data: Dict[str, Any] = {"type": "error", "content": "An unexpected error occurred."}
 
@@ -896,24 +804,19 @@ async def handle_confirmed_sql(request: ConfirmedExecutionRequest):
 
         if status == 3: # SQL Error
             error_content = f"Confirmed query failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
-            # For confirmed SQL, original user query is not directly available here.
-            # We can pass the SQL itself as the context for the error explanation.
             ai_explanation = get_error_explanation_with_gemini(original_user_query=f"User confirmed execution of the following SQL", failed_sql_query=query_to_run, error_message=str(db_error))
             response_data = {"type": "error", "content": error_content, "ai_explanation": ai_explanation}
         elif status == 2: # DML/DDL Success
             response_data = {"type": "info", "content": f"Query executed successfully:\n\n```sql\n{query_to_run}\n```"}
-        elif status == 1: # SELECT/SHOW Success (unlikely for confirmed DML/DDL, but handle robustly)
-            # insights = "" # Decided not to generate insights here for simplicity
-            # if results is not None and columns and col_types:
-            # insights = get_insights_with_gemini(original_query=f"Confirmed execution of: {query_to_run}", sql_query=query_to_run, results=results, columns=columns, col_types=col_types)
+        elif status == 1: # SELECT/SHOW Success (less likely for confirmed DML/DDL, but handle robustly)
             response_data = {
-                "type": "result", # Keep type as result for consistency if it's a SELECT
+                "type": "result", 
                 "query": query_to_run,
                 "columns": columns,
                 "results": results,
                 "insights": "Query executed. Insights are typically generated for natural language queries leading to SELECT."
             }
-        else: # Should not happen
+        else: 
             response_data = {"type": "error", "content": "Unknown query execution status."}
 
         return JSONResponse(content=jsonable_encoder(response_data))
@@ -923,10 +826,9 @@ async def handle_confirmed_sql(request: ConfirmedExecutionRequest):
         response_data = {"type": "error", "content": f"An internal server error occurred: {e}"}
         return JSONResponse(content=response_data, status_code=500)
 
-
 # --- Main Execution ---
 if __name__ == "__main__":
     import uvicorn
     logger.info("Starting SQL Assistant server...")
-    # Start the server even if Gemini API key is missing - we can set it later
+    # Start the server even if Gemini API key is missing; it can be set later via /config
     uvicorn.run(app, host="0.0.0.0", port=8012)
