@@ -69,120 +69,93 @@ def update_environment(config_data):
         "mysql_user": "root",
         "mysql_password": "root",
         "mysql_database": "SQLLLM",
-        "gemini_api_key": ""
+        "gemini_api_key": "" # Explicitly empty for API key default handling
     }
     
-    if "mysql_host" in config_data and config_data["mysql_host"]:
-        MYSQL_HOST = config_data["mysql_host"]
-    else:
-        MYSQL_HOST = defaults["mysql_host"]
+    # Update global Python variables and os.environ
+    # If config_data provides a value, use it. Otherwise, use the default.
+    MYSQL_HOST = config_data["mysql_host"] if config_data.get("mysql_host") else defaults["mysql_host"]
     os.environ["MYSQL_HOST"] = MYSQL_HOST
     
-    if "mysql_user" in config_data and config_data["mysql_user"]:
-        MYSQL_USER = config_data["mysql_user"]
-    else:
-        MYSQL_USER = defaults["mysql_user"]
+    MYSQL_USER = config_data["mysql_user"] if config_data.get("mysql_user") else defaults["mysql_user"]
     os.environ["MYSQL_USER"] = MYSQL_USER
     
-    if "mysql_password" in config_data and config_data["mysql_password"]:
-        MYSQL_PASSWORD = config_data["mysql_password"]
-    else:
-        MYSQL_PASSWORD = defaults["mysql_password"]
+    MYSQL_PASSWORD = config_data["mysql_password"] if config_data.get("mysql_password") else defaults["mysql_password"]
     os.environ["MYSQL_PASSWORD"] = MYSQL_PASSWORD
     
-    if "mysql_database" in config_data and config_data["mysql_database"]:
-        MYSQL_DATABASE = config_data["mysql_database"]
-    else:
-        MYSQL_DATABASE = defaults["mysql_database"]
+    MYSQL_DATABASE = config_data["mysql_database"] if config_data.get("mysql_database") else defaults["mysql_database"]
     os.environ["MYSQL_DATABASE"] = MYSQL_DATABASE
     
-    if "gemini_api_key" in config_data and config_data["gemini_api_key"]:
+    # For Gemini API key, allow an empty string from config_data to be set
+    if "gemini_api_key" in config_data:
         GEMINI_API_KEY = config_data["gemini_api_key"]
-        os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
-        initialize_gemini_api() # Reinitialize Gemini API with new key
+    else:
+        GEMINI_API_KEY = defaults["gemini_api_key"] # Should not happen if key always in config_data
+    os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
+    if config_data.get("gemini_api_key") or defaults["gemini_api_key"]:
+        initialize_gemini_api() # Reinitialize if key is set or was previously set and now defaulted
     
-    update_env_file(config_data, defaults)
+    update_env_file() # Call without arguments
     logger.info("Environment variables updated with new configuration")
 
 # Function to update .env file
-def update_env_file(config_data, defaults):
-    """Updates .env file with new configuration data."""
+def update_env_file(): # Removed config_data and defaults parameters
+    """Updates .env file with the current global configuration values."""
+    global MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE, GEMINI_API_KEY
     try:
-        if not os.path.exists(ENV_FILE_PATH): # Create a new .env file if it doesn't exist
+        env_values_to_write = {
+            "MYSQL_HOST": MYSQL_HOST,
+            "MYSQL_USER": MYSQL_USER,
+            "MYSQL_PASSWORD": MYSQL_PASSWORD,
+            "MYSQL_DATABASE": MYSQL_DATABASE,
+            "GEMINI_API_KEY": GEMINI_API_KEY
+        }
+
+        if not os.path.exists(ENV_FILE_PATH):
             with open(ENV_FILE_PATH, "w") as env_file:
-                env_file.write(f"MYSQL_HOST={config_data.get('mysql_host', defaults['mysql_host'])}\n")
-                env_file.write(f"MYSQL_USER={config_data.get('mysql_user', defaults['mysql_user'])}\n")
-                env_file.write(f"MYSQL_PASSWORD={config_data.get('mysql_password', defaults['mysql_password'])}\n")
-                env_file.write(f"MYSQL_DATABASE={config_data.get('mysql_database', defaults['mysql_database'])}\n")
-                env_file.write(f"GEMINI_API_KEY={config_data.get('gemini_api_key', defaults['gemini_api_key'])}\n")
+                for key, value in env_values_to_write.items():
+                    env_file.write(f"{key}={value}\n")
                 logger.info("Created .env file with new configuration")
         else:
-            try: # Read existing .env file
+            try:
                 with open(ENV_FILE_PATH, "r") as env_file:
                     lines = env_file.readlines()
             except Exception as e:
-                logger.error(f"Error reading .env file: {e}")
-                # If reading fails, create a new file
+                logger.error(f"Error reading .env file: {e}, recreating file.")
                 with open(ENV_FILE_PATH, "w") as env_file:
-                    env_file.write(f"MYSQL_HOST={config_data.get('mysql_host', defaults['mysql_host'])}\n")
-                    env_file.write(f"MYSQL_USER={config_data.get('mysql_user', defaults['mysql_user'])}\n")
-                    env_file.write(f"MYSQL_PASSWORD={config_data.get('mysql_password', defaults['mysql_password'])}\n")
-                    env_file.write(f"MYSQL_DATABASE={config_data.get('mysql_database', defaults['mysql_database'])}\n")
-                    env_file.write(f"GEMINI_API_KEY={config_data.get('gemini_api_key', defaults['gemini_api_key'])}\n")
+                    for key, value in env_values_to_write.items():
+                        env_file.write(f"{key}={value}\n")
                     logger.info("Created new .env file after read failure")
                 return
                 
-            # Update existing lines or add new ones
             updated_lines = []
-            updated_keys = {"MYSQL_HOST": False, "MYSQL_USER": False, "MYSQL_PASSWORD": False, 
-                          "MYSQL_DATABASE": False, "GEMINI_API_KEY": False}
+            managed_keys_updated = {key: False for key in env_values_to_write}
             
             for line in lines:
-                line = line.strip()
-                if not line or line.startswith("#"):  # Preserve comments and blank lines
-                    updated_lines.append(line + "\n")
+                line_strip = line.strip()
+                if not line_strip or line_strip.startswith("#"):  # Preserve comments and blank lines
+                    updated_lines.append(line)
                     continue
                 
-                if "=" not in line:  # Skip malformed lines
-                    updated_lines.append(line + "\n")
+                if "=" not in line_strip:  # Skip malformed lines
+                    updated_lines.append(line)
                     continue
                     
-                key, _ = line.split("=", 1)
-                key = key.strip()
+                key, _ = line_strip.split("=", 1)
+                key_stripped = key.strip()
                 
-                if key == "MYSQL_HOST":
-                    updated_lines.append(f"MYSQL_HOST={config_data.get('mysql_host', defaults['mysql_host'])}\n")
-                    updated_keys["MYSQL_HOST"] = True
-                elif key == "MYSQL_USER":
-                    updated_lines.append(f"MYSQL_USER={config_data.get('mysql_user', defaults['mysql_user'])}\n")
-                    updated_keys["MYSQL_USER"] = True
-                elif key == "MYSQL_PASSWORD":
-                    updated_lines.append(f"MYSQL_PASSWORD={config_data.get('mysql_password', defaults['mysql_password'])}\n")
-                    updated_keys["MYSQL_PASSWORD"] = True
-                elif key == "MYSQL_DATABASE":
-                    updated_lines.append(f"MYSQL_DATABASE={config_data.get('mysql_database', defaults['mysql_database'])}\n")
-                    updated_keys["MYSQL_DATABASE"] = True
-                elif key == "GEMINI_API_KEY":
-                    updated_lines.append(f"GEMINI_API_KEY={config_data.get('gemini_api_key', defaults['gemini_api_key'])}\n")
-                    updated_keys["GEMINI_API_KEY"] = True
+                if key_stripped in env_values_to_write:
+                    updated_lines.append(f"{key_stripped}={env_values_to_write[key_stripped]}\n")
+                    managed_keys_updated[key_stripped] = True
                 else:
-                    updated_lines.append(line + "\n")  # Preserve other environment variables
+                    updated_lines.append(line)  # Preserve other unrelated env variables
             
-            # Add any missing keys
-            for key, updated in updated_keys.items():
-                if not updated:
-                    if key == "MYSQL_HOST":
-                        updated_lines.append(f"MYSQL_HOST={config_data.get('mysql_host', defaults['mysql_host'])}\n")
-                    elif key == "MYSQL_USER":
-                        updated_lines.append(f"MYSQL_USER={config_data.get('mysql_user', defaults['mysql_user'])}\n")
-                    elif key == "MYSQL_PASSWORD":
-                        updated_lines.append(f"MYSQL_PASSWORD={config_data.get('mysql_password', defaults['mysql_password'])}\n")
-                    elif key == "MYSQL_DATABASE":
-                        updated_lines.append(f"MYSQL_DATABASE={config_data.get('mysql_database', defaults['mysql_database'])}\n")
-                    elif key == "GEMINI_API_KEY":
-                        updated_lines.append(f"GEMINI_API_KEY={config_data.get('gemini_api_key', defaults['gemini_api_key'])}\n")
+            # Add any of our managed keys that weren't in the file originally
+            for key, value in env_values_to_write.items():
+                if not managed_keys_updated[key]:
+                    updated_lines.append(f"{key}={value}\n")
             
-            with open(ENV_FILE_PATH, "w") as env_file: # Write updated .env file
+            with open(ENV_FILE_PATH, "w") as env_file:
                 env_file.writelines(updated_lines)
                 logger.info("Updated .env file with new configuration")
     except Exception as e:
