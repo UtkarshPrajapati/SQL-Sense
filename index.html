@@ -329,13 +329,38 @@
              border-color: rgba(255,255,255,0.2);
          }
 
+        /* Animations for schema icon toggle */
+        @keyframes iconAnimateOut {
+            from { opacity: 1; transform: scale(1) rotate(0deg); }
+            to   { opacity: 0; transform: scale(0.6) rotate(-75deg); }
+        }
+        @keyframes iconAnimateIn {
+            from { opacity: 0; transform: scale(0.6) rotate(75deg); }
+            to   { opacity: 1; transform: scale(1) rotate(0deg); }
+        }
+
+        .schema-icon-animate-out {
+            animation: iconAnimateOut 0.1s ease-in-out forwards;
+        }
+        .schema-icon-animate-in {
+            animation: iconAnimateIn 0.1s ease-in-out forwards;
+        }
+
+        @keyframes rotate360cw {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
+        }
+
+        #header-db-icon.icon-rotate-onload {
+            animation: rotate360cw 0.5s ease-in-out;
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans flex flex-col h-screen">
 
     <header class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-4 shadow-md flex justify-between items-center">
-        <a href="/" class="text-xl font-bold flex items-center">
-            <i data-lucide="database" class="mr-2"></i> DataFlow
+        <a href="/" id="header-link" class="text-xl font-bold flex items-center">
+            <i id="header-db-icon" data-lucide="database" class="mr-2"></i> DataFlow
         </a>
         <div class="flex items-center space-x-3">
             <button id="config-toggle-btn" class="bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg shadow text-sm transition duration-150 ease-in-out flex items-center">
@@ -1032,14 +1057,35 @@
             const upIcon = document.getElementById('schema-up-icon');
             const schemaText = document.getElementById('schema-text');
 
-            if (isHidden) {
+            // Prevent re-triggering animations if already in progress by cleaning up
+            dbIcon.classList.remove('schema-icon-animate-out', 'schema-icon-animate-in');
+            upIcon.classList.remove('schema-icon-animate-out', 'schema-icon-animate-in');
+            // Reset styles that 'forwards' might have left, ensuring clean state for new animations or 'hidden'
+            dbIcon.style.opacity = ''; 
+            dbIcon.style.transform = '';
+            upIcon.style.opacity = ''; 
+            upIcon.style.transform = '';
+
+            if (isHidden) { // Schema is opening: db-icon fades out, up-icon fades in
                 schemaDisplay.classList.remove('max-h-0', 'opacity-0', 'p-0', 'border-0', 'overflow-hidden');
                 schemaDisplay.classList.add('max-h-48', 'opacity-100', 'p-4', 'border-b', 'overflow-y-auto');
-
-                dbIcon.classList.add('hidden');
-                upIcon.classList.remove('hidden');
                 schemaText.textContent = 'Hide Schema';
 
+                // Animate out dbIcon
+                dbIcon.classList.add('schema-icon-animate-out');
+                dbIcon.addEventListener('animationend', function handleDbAnimOut() {
+                    dbIcon.classList.add('hidden');
+                    dbIcon.classList.remove('schema-icon-animate-out'); // Clean up animation class
+
+                    // Animate in upIcon
+                    upIcon.classList.remove('hidden');
+                    void upIcon.offsetWidth; // Force reflow before adding new animation class
+                    upIcon.classList.add('schema-icon-animate-in');
+                    upIcon.addEventListener('animationend', function handleUpAnimIn() {
+                        upIcon.classList.remove('schema-icon-animate-in'); // Clean up animation class
+                    }, { once: true });
+                }, { once: true });
+                
                 const currentHTML = schemaContent.innerHTML;
                 const trimmedContent = currentHTML.trim();
 
@@ -1057,10 +1103,22 @@
             } else {
                 schemaDisplay.classList.remove('max-h-48', 'opacity-100', 'p-4', 'border-b', 'overflow-y-auto');
                 schemaDisplay.classList.add('max-h-0', 'opacity-0', 'p-0', 'border-0', 'overflow-hidden');
-
-                dbIcon.classList.remove('hidden');
-                upIcon.classList.add('hidden');
                 schemaText.textContent = 'View Schema';
+
+                // Animate out upIcon
+                upIcon.classList.add('schema-icon-animate-out');
+                upIcon.addEventListener('animationend', function handleUpAnimOut() {
+                    upIcon.classList.add('hidden');
+                    upIcon.classList.remove('schema-icon-animate-out');
+
+                    // Animate in dbIcon
+                    dbIcon.classList.remove('hidden');
+                    void dbIcon.offsetWidth; // Force reflow
+                    dbIcon.classList.add('schema-icon-animate-in');
+                    dbIcon.addEventListener('animationend', function handleDbAnimIn() {
+                        dbIcon.classList.remove('schema-icon-animate-in');
+                    }, { once: true });
+                }, { once: true });
             }
         });
 
@@ -1136,6 +1194,18 @@
         // --- Initial Setup ---
 
         lucide.createIcons();
+
+        // Page load animation for header icon
+        document.addEventListener('DOMContentLoaded', () => {
+            const headerDbIcon = document.getElementById('header-db-icon');
+            if (headerDbIcon) {
+                headerDbIcon.classList.add('icon-rotate-onload');
+                headerDbIcon.addEventListener('animationend', () => {
+                    headerDbIcon.classList.remove('icon-rotate-onload');
+                }, { once: true });
+            }
+        });
+
     </script>
 </body>
 </html>
