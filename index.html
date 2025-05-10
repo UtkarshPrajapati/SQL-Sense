@@ -428,7 +428,14 @@
             display: flex;
             align-items: center;
             font-size: 0.85rem; /* Slightly smaller font */
-            transition: background-color 0.15s ease-out;
+            /* ADDED for gradual appearance */
+            opacity: 0;
+            transform: translateY(8px); /* Start slightly lower */
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out, background-color 0.15s ease-out; /* Combined transitions */
+        }
+        .schema-item.visible-item { /* ADDED class for visible state */
+            opacity: 1;
+            transform: translateY(0);
         }
         .schema-item:hover {
             background-color: rgba(0,0,0,0.04);
@@ -479,7 +486,7 @@
             /* ADDED: for smooth collapse/expand animation */
             overflow: hidden;
             max-height: 0; /* Initially collapsed */
-            transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1); /* Increased from 0.3s */
         }
         .schema-column {
             padding: 0.1rem 0;
@@ -493,7 +500,7 @@
         .database-content-wrapper {
             overflow: hidden;
             max-height: 0; /* Initially collapsed */
-            transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1); /* Increased from 0.3s */
         }
     </style>
 </head>
@@ -759,9 +766,57 @@
 
         // MODIFY fetchSchema to handle nested structure
         async function fetchSchema(showLoading = true) {
+            // NEW: Record start time for minimum loader display
+            let startTime = 0;
+            const minLoadingTime = 500; // Minimum loader display time in ms
+
             if (showLoading) {
                  schemaContent.innerHTML = '<div class="flex items-center justify-center p-4"><span class="mr-2">Loading schema...</span>' + createSpinnerSvg("w-4 h-4 text-gray-400 animate-spin fill-blue-600") + '</div>';
+                 startTime = Date.now(); // Record time after loader is shown
             }
+
+            // NEW: Helper function to actually update content and apply animations
+            const performVisualUpdate = (htmlToSet, animate) => {
+                schemaContent.innerHTML = htmlToSet;
+                lucide.createIcons(); // Create icons first
+
+                const items = schemaContent.querySelectorAll('.schema-item');
+                const initialDelay = 0; // Small base delay (ms) before the first item starts
+                const staggerAmount = 5;  // Delay between each subsequent item (ms)
+
+                if (animate) {
+                    // Use requestAnimationFrame to ensure initial styles are painted before animation starts
+                    requestAnimationFrame(() => {
+                        items.forEach((item, index) => {
+                            setTimeout(() => {
+                                item.classList.add('visible-item');
+                            }, initialDelay + (index * staggerAmount)); 
+                        });
+                    });
+                } else {
+                    // If not animating, make them visible immediately (can also be in RAF for consistency)
+                    requestAnimationFrame(() => {
+                        items.forEach(item => {
+                            item.classList.add('visible-item');
+                        });
+                    });
+                }
+            };
+
+            // REVISED: Helper function to update content after minimum delay
+            const updateContentWithDelay = (htmlToSet) => {
+                if (showLoading) {
+                    const elapsedTime = Date.now() - startTime;
+                    const delayForLoader = Math.max(0, minLoadingTime - elapsedTime); // Ensure delay is not negative
+                    setTimeout(() => {
+                        performVisualUpdate(htmlToSet, true); // Animate after loader
+                    }, delayForLoader);
+                } else {
+                    // If not showing loading (e.g., initial silent load), update immediately without animation for entry
+                    performVisualUpdate(htmlToSet, false);
+                }
+            };
+
              try {
                  const response = await fetch('/schema');
                  if (!response.ok) {
@@ -776,23 +831,25 @@
                  const data = await response.json();
                  const schema = data.schema; // Expected format: { dbName: { tableName: [columns] } } or { error: { schema: ["message"] } }
 
+                 let finalSchemaHtml = ''; // Variable to store the fully constructed HTML
+
                  // Check for the top-level error structure first
                  if (schema && typeof schema === 'object' && schema.error && schema.error.schema && Array.isArray(schema.error.schema)) {
-                    schemaContent.innerHTML = `<div class="p-4"><p class="text-red-600">Error fetching schema: ${escapeHtml(schema.error.schema.join(', '))}</p></div>`;
+                    finalSchemaHtml = `<div class="p-4"><p class="text-red-600">Error fetching schema: ${escapeHtml(schema.error.schema.join(', '))}</p></div>`;
                  } else if (schema && typeof schema === 'object' && Object.keys(schema).length > 0) {
-                     let schemaHtml = '';
+                     let builtSchemaContent = ''; // Temporary string to build schema details
                      // Iterate through Databases
                      for (const dbName in schema) {
                          if (schema.hasOwnProperty(dbName)) {
                              // ADDED: group class, toggle-icon, and made it initially not expanded
-                             schemaHtml += `<div class="schema-item schema-database-item group"><i data-lucide="database"></i>${escapeHtml(dbName)}<i data-lucide="chevron-down" class="toggle-icon h-4 w-4 text-gray-400 group-hover:text-gray-600"></i></div>`;
+                             builtSchemaContent += `<div class="schema-item schema-database-item group"><i data-lucide="database"></i>${escapeHtml(dbName)}<i data-lucide="chevron-down" class="toggle-icon h-4 w-4 text-gray-400 group-hover:text-gray-600"></i></div>`;
                              // ADDED: Wrapper for all tables and columns under this DB, hidden by default
-                             schemaHtml += '<div class="database-content-wrapper">';
+                             builtSchemaContent += '<div class="database-content-wrapper">';
                               const tables = schema[dbName]; // This could be { tableName: [cols] } or { error: ["msg"] }
  
                               // Check if the value for the dbName is an error object
                               if (typeof tables === 'object' && tables !== null && tables.error && Array.isArray(tables.error)) {
-                                  schemaHtml += `<div class="schema-item schema-table-item italic text-red-500"><i data-lucide="alert-triangle"></i>Error: ${escapeHtml(tables.error.join(', '))}</div>`;
+                                  builtSchemaContent += `<div class="schema-item schema-table-item italic text-red-500"><i data-lucide="alert-triangle"></i>Error: ${escapeHtml(tables.error.join(', '))}</div>`;
                               }
                               // Check if it's a valid tables object (and not the error object)
                               else if (typeof tables === 'object' && tables !== null && !tables.error) {
@@ -801,40 +858,40 @@
                                       for (const tableName in tables) {
                                           if (tables.hasOwnProperty(tableName) && Array.isArray(tables[tableName])) {
                                               // ADDED: group class for hover states on icon, and toggle-icon span
-                                              schemaHtml += `<div class="schema-item schema-table-item group"><i data-lucide="table-2"></i><strong>${escapeHtml(tableName)}</strong><i data-lucide="chevron-down" class="toggle-icon h-4 w-4 text-gray-400 group-hover:text-gray-600"></i></div>`;
+                                              builtSchemaContent += `<div class="schema-item schema-table-item group"><i data-lucide="table-2"></i><strong>${escapeHtml(tableName)}</strong><i data-lucide="chevron-down" class="toggle-icon h-4 w-4 text-gray-400 group-hover:text-gray-600"></i></div>`;
                                                if (tables[tableName].length > 0) {
                                                    // ADDED: hidden class to collapse columns by default
-                                                   schemaHtml += '<div class="schema-columns-list">';
+                                                   builtSchemaContent += '<div class="schema-columns-list">';
                                                     tables[tableName].forEach(column => {
-                                                        schemaHtml += `<div class="schema-column">${escapeHtml(column)}</div>`;
+                                                        builtSchemaContent += `<div class="schema-column">${escapeHtml(column)}</div>`;
                                                     });
-                                                   schemaHtml += '</div>';
+                                                   builtSchemaContent += '</div>';
                                                } else {
-                                                   schemaHtml += '<div class="schema-columns-list italic">No columns found.</div>';
+                                                   builtSchemaContent += '<div class="schema-columns-list italic">No columns found.</div>';
                                                }
                                           }
                                       }
                                   } else {
-                                      schemaHtml += '<div class="schema-item schema-table-item italic"><i data-lucide="info"></i>No tables found.</div>';
+                                      builtSchemaContent += '<div class="schema-item schema-table-item italic"><i data-lucide="info"></i>No tables found.</div>';
                                   }
                               } else {
                                   // Handle unexpected format for the database entry
-                                  schemaHtml += '<div class="schema-item schema-table-item italic"><i data-lucide="info"></i>No table data.</div>';
+                                  builtSchemaContent += '<div class="schema-item schema-table-item italic"><i data-lucide="info"></i>No table data.</div>';
                               }
-                          schemaHtml += '</div>'; // Close database-content-wrapper
+                          builtSchemaContent += '</div>'; // Close database-content-wrapper
                           }
                       }
-                      schemaContent.innerHTML = schemaHtml || '<div class="p-4 text-gray-500"><i data-lucide="search-x" class="inline-block mr-2"></i>No databases or tables found.</div>';
+                      finalSchemaHtml = builtSchemaContent || '<div class="p-4 text-gray-500"><i data-lucide="search-x" class="inline-block mr-2"></i>No databases or tables found.</div>';
                   } else {
                       // This case handles empty schema object {} or other non-error, non-object types
-                      schemaContent.innerHTML = '<div class="p-4 text-gray-500"><i data-lucide="database-zap" class="inline-block mr-2"></i>No schema found or unable to fetch.</div>';
+                      finalSchemaHtml = '<div class="p-4 text-gray-500"><i data-lucide="database-zap" class="inline-block mr-2"></i>No schema found or unable to fetch.</div>';
                   }
-                  lucide.createIcons(); // Create icons for newly added elements
+                  updateContentWithDelay(finalSchemaHtml); // Use the helper to update content
               } catch (error) {
                   console.error('Error fetching schema:', error);
                   // Ensure error.message is escaped
-                  schemaContent.innerHTML = `<div class="p-4 text-red-600"><i data-lucide="alert-circle" class="inline-block mr-2"></i>Failed to load schema. ${escapeHtml(error.message)}</div>`;
-                  lucide.createIcons(); // Also create icon for error message
+                  const errorHtml = `<div class="p-4 text-red-600"><i data-lucide="alert-circle" class="inline-block mr-2"></i>Failed to load schema. ${escapeHtml(error.message)}</div>`;
+                  updateContentWithDelay(errorHtml); // Use the helper to update content for errors
               }
         }
 
@@ -1368,9 +1425,16 @@
                 const dbContentWrapper = dbItem.nextElementSibling;
                 if (dbContentWrapper && dbContentWrapper.classList.contains('database-content-wrapper')) {
                     if (dbContentWrapper.style.maxHeight && dbContentWrapper.style.maxHeight !== '0px') {
-                        dbContentWrapper.style.maxHeight = '0px'; // Collapse
+                        // Collapse: Prime with scrollHeight for smoother animation start
+                        dbContentWrapper.style.maxHeight = dbContentWrapper.scrollHeight + 'px';
+                        // Force reflow to apply the above height before transitioning to 0
+                        dbContentWrapper.offsetHeight; 
+                        requestAnimationFrame(() => {
+                            dbContentWrapper.style.maxHeight = '0px';
+                        });
                     } else {
-                        dbContentWrapper.style.maxHeight = '5000px'; // Expand to a large enough value to accommodate child expansions
+                        // Expand
+                        dbContentWrapper.style.maxHeight = '5000px'; // Expand to a large enough value
                     }
                 }
             } else {
