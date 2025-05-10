@@ -8,78 +8,113 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        /* Custom scrollbar for chat history */
+        :root {
+            --md-primary-color: #3f51b5; /* Indigo */
+            --md-primary-color-dark: #303f9f;
+            --md-accent-color: #448aff; /* Blue A200 */
+            --md-text-primary-on-background: rgba(0,0,0,0.87);
+            --md-text-secondary-on-background: rgba(0,0,0,0.60);
+            --md-surface-color: #ffffff;
+            --md-background-color: #f5f5f5; /* Lighter gray for body */
+            --md-error-color: #f44336;
+            --md-border-color: #e0e0e0; /* Lighter border */
+            --md-elevation-1: 0 2px 2px 0 rgba(0,0,0,0.14), 0 3px 1px -2px rgba(0,0,0,0.12), 0 1px 5px 0 rgba(0,0,0,0.20);
+            --md-elevation-2: 0 4px 5px 0 rgba(0,0,0,0.14), 0 1px 10px 0 rgba(0,0,0,0.12), 0 2px 4px -1px rgba(0,0,0,0.20);
+            --md-elevation-3: 0 6px 10px 0 rgba(0,0,0,0.14), 0 1px 18px 0 rgba(0,0,0,0.12), 0 3px 5px -1px rgba(0,0,0,0.20);
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif; /* Material Design uses Roboto */
+            background-color: var(--md-background-color);
+            color: var(--md-text-primary-on-background);
+        }
+        /* Import Roboto font (add to <head> if not already - this is a CSS import) */
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+
+        /* Custom scrollbar for chat history - slightly more subtle */
         #chat-history::-webkit-scrollbar {
-            width: 6px;
+            width: 8px;
         }
         #chat-history::-webkit-scrollbar-track {
-            background: #f1f1f1;
+            background: #eeeeee; /* Lighter track */
             border-radius: 10px;
         }
         #chat-history::-webkit-scrollbar-thumb {
-            background: #888;
+            background: #bdbdbd; /* Grey for thumb */
             border-radius: 10px;
         }
         #chat-history::-webkit-scrollbar-thumb:hover {
-            background: #555;
+            background: #9e9e9e; /* Darker grey on hover */
         }
-        /* Ensure code blocks wrap */
+        
         pre {
-            white-space: pre-wrap;       /* Since CSS 2.1 */
-            white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
-            white-space: -pre-wrap;      /* Opera 4-6 */
-            white-space: -o-pre-wrap;    /* Opera 7 */
-            word-wrap: break-word;       /* Internet Explorer 5.5+ */
+            white-space: pre-wrap;      
+            word-wrap: break-word;      
+            background-color: #f0f0f0; /* Lighter background for code blocks */
+            border-radius: 4px;
+            padding: 0.75rem 1rem;
+            box-shadow: var(--md-elevation-1);
+            border: 1px solid var(--md-border-color);
         }
-        /* Style for generated tables */
+        code.language-sql {
+            font-family: 'Roboto Mono', monospace; /* Consistent monospaced font */
+        }
+
+
+        /* Style for generated tables - Material inspired */
         .results-table {
-            max-height: 400px;
+            max-height: 450px; /* Slightly increased height */
             overflow-y: auto;
-            border: 1px solid #e2e8f0; /* Tailwind gray-200 */
-            border-radius: 0.375rem; /* rounded-md */
-            margin-top: 0.5rem; /* mt-2 */
-            margin-bottom: 1rem; /* mb-4 */
+            border: 1px solid var(--md-border-color);
+            border-radius: 8px; /* More rounded */
+            margin-top: 1rem; 
+            margin-bottom: 1.5rem; 
+            box-shadow: var(--md-elevation-1);
         }
         .results-table table {
             width: 100%;
             border-collapse: collapse;
         }
         .results-table th, .results-table td {
-            border: 1px solid #e2e8f0; /* Tailwind gray-200 */
-            padding: 0.5rem 0.75rem; /* px-3 py-2 */
+            border: none; /* Remove internal borders for cleaner look */
+            border-bottom: 1px solid var(--md-border-color); /* Horizontal lines only */
+            padding: 0.75rem 1rem; /* Increased padding */
             text-align: left;
-            font-size: 0.875rem; /* text-sm */
+            font-size: 0.9rem; 
         }
         .results-table th {
-            background-color: #f8fafc; /* Tailwind slate-50 */
-            position: sticky; /* Keep headers visible */
+            background-color: #fafafa; /* Very light grey for header */
+            font-weight: 500; /* Medium font weight */
+            color: var(--md-text-secondary-on-background);
+            position: sticky; 
             top: 0;
             z-index: 10;
+            border-bottom-width: 2px; /* Thicker bottom border for header */
         }
         .results-table tbody tr:nth-child(even) {
-            background-color: #f8fafc; /* Tailwind slate-50 */
+            background-color: transparent; /* Remove alternating row color for cleaner look */
         }
         .results-table tbody tr:hover {
-            background-color: #f1f5f9; /* Tailwind slate-100 */
+            background-color: rgba(0,0,0,0.04); /* Subtle hover effect */
         }
-        /* Config popup styles */
+
+        /* Config popup styles - Material Card */
         #config-popup {
-            position: absolute;
+            position: fixed; /* Use fixed if it should overlay scroll */
             top: 70px;
             right: 20px;
-            z-index: 50;
-            width: 300px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            /* Animation settings - more dramatic slide effect */
+            z-index: 100; /* Ensure it's above other elements */
+            width: 320px; /* Slightly wider */
+            background-color: var(--md-surface-color);
+            border-radius: 8px; /* More pronounced rounding */
+            box-shadow: var(--md-elevation-3); /* Stronger shadow for popup */
             opacity: 0;
-            transform: translateY(-30px);
-            transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            transform: translateY(-20px) scale(0.98); /* Adjusted for smoother entry */
+            transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             pointer-events: none;
-            display: block;
             visibility: hidden;
-            /* Add a scale effect for more drama */
             transform-origin: top right;
-            transform: translateY(-30px) scale(0.95);
         }
         #config-popup.visible {
             opacity: 1;
@@ -87,194 +122,213 @@
             visibility: visible;
             pointer-events: auto;
         }
-        /* Add animation debug outlines if needed */
-        #config-popup.debug-animation {
-            outline: 2px solid red;
+        #config-popup label {
+            color: var(--md-text-secondary-on-background);
+            font-size: 0.8rem;
+        }
+        #config-popup input[type="text"], 
+        #config-popup input[type="password"] {
+            border: none;
+            border-bottom: 1px solid var(--md-border-color);
+            border-radius: 0; /* Flat bottom border for Material inputs */
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            transition: border-color 0.2s ease-in-out;
+        }
+        #config-popup input[type="text"]:focus, 
+        #config-popup input[type="password"]:focus {
+            border-bottom: 2px solid var(--md-primary-color);
+            box-shadow: none; /* Remove Tailwind focus shadow */
         }
         
-        /* Settings icon rotation animation */
+        /* Settings icon rotation animation - unchanged */
         @keyframes rotate-cw {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(180deg); }
         }
-        
         @keyframes rotate-ccw {
             0% { transform: rotate(180deg); }
             100% { transform: rotate(0deg); }
         }
-        
-        .settings-icon-rotate-cw {
-            animation: rotate-cw 0.5s ease forwards;
-        }
-        
-        .settings-icon-rotate-ccw {
-            animation: rotate-ccw 0.5s ease forwards;
-        }
+        .settings-icon-rotate-cw { animation: rotate-cw 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        .settings-icon-rotate-ccw { animation: rotate-ccw 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 
-        /* Toast notification styles */
+        /* Toast notification styles - Materialized */
         #toast-container {
             position: fixed;
-            top: 1rem;
-            right: 1rem;
+            bottom: 1rem; /* Position at bottom */
+            left: 1rem;   /* Usually bottom-left or bottom-center for toasts */
             z-index: 1000;
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
-            max-width: 24rem;
+            gap: 0.75rem; /* Increased gap */
+            max-width: 350px; /* Slightly wider toasts */
         }
-
         .toast {
-            padding: 1rem;
-            border-radius: 0.375rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            padding: 0.75rem 1.25rem; /* Adjust padding */
+            border-radius: 4px; /* Standard Material rounding */
+            box-shadow: var(--md-elevation-2);
             display: flex;
-            align-items: flex-start;
+            align-items: center; /* Center align items vertically */
             justify-content: space-between;
-            margin-bottom: 0.5rem;
-            animation: toast-in 0.3s ease-in-out forwards;
+            margin-bottom: 0; /* Gap is handled by container */
+            animation: toast-in-material 0.3s cubic-bezier(0, 0, 0.2, 1) forwards;
             max-width: 100%;
+            background-color: #323232; /* Dark background for Material toasts */
+            color: #ffffff; /* White text */
+            border-left: none; /* Remove side border */
         }
-
-        .toast-success {
-            background-color: #d1fae5;
-            color: #065f46;
-            border-left: 4px solid #10b981;
-        }
-
-        .toast-warning {
-            background-color: #fef3c7;
-            color: #92400e;
-            border-left: 4px solid #f59e0b;
-        }
-
-        .toast-error {
-            background-color: #fee2e2;
-            color: #b91c1c;
-            border-left: 4px solid #ef4444;
-        }
-
-        .toast-info {
-            background-color: #e0f2fe;
-            color: #0c4a6e;
-            border-left: 4px solid #0ea5e9;
-        }
+        .toast-success { background-color: #4caf50; color: white; }
+        .toast-warning { background-color: #ff9800; color: white; }
+        .toast-error { background-color: var(--md-error-color); color: white; }
+        .toast-info { background-color: var(--md-accent-color); color: white; }
 
         .toast-content {
             flex: 1;
             overflow-wrap: break-word;
             word-break: break-word;
             white-space: pre-line;
+            font-size: 0.9rem;
         }
-
         .toast-close {
             background: transparent;
             border: none;
             cursor: pointer;
-            font-size: 1rem;
-            margin-left: 0.5rem;
+            font-size: 1.25rem; /* Larger close icon */
+            margin-left: 1rem;
             padding: 0;
-            color: currentColor;
-            opacity: 0.7;
+            color: rgba(255,255,255,0.7);
+            opacity: 1; /* Opacity managed by color */
+            transition: color 0.2s ease-in-out;
         }
+        .toast-close:hover { color: rgba(255,255,255,1); }
 
-        .toast-close:hover {
-            opacity: 1;
+        @keyframes toast-in-material { /* Adjusted animation for bottom entry */
+            0% { transform: translateY(100%) scale(0.9); opacity: 0; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
         }
-
-        @keyframes toast-in {
-            0% { 
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            100% { 
-                transform: translateX(0);
-                opacity: 1;
-            }
+        @keyframes toast-out-material {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            100% { transform: translateY(50%) scale(0.9); opacity: 0; }
         }
+        .toast-remove { animation: toast-out-material 0.25s cubic-bezier(0.4, 0, 1, 1) forwards; }
 
-        @keyframes toast-out {
-            0% { 
-                transform: translateX(0);
-                opacity: 1;
-            }
-            100% { 
-                transform: translateX(100%);
-                opacity: 0;
-            }
-        }
-
-        .toast-remove {
-            animation: toast-out 0.3s ease-in-out forwards;
-        }
-
-        /* Autocomplete popup for slash commands */
+        /* Autocomplete popup for slash commands - Materialized */
         #slash-command-popup {
-            /* Positioned by JS relative to form container */
-            /* min-width: 100px; */ /* Ensure it has some base width */
-            left: 1rem; /* Match p-4 padding of parent container */
-            /* width: calc(100% - 2rem); */ /* Adjust width considering parent padding */
-            /* max-width: 300px; */ /* Optional: prevent it from becoming too wide */
-            width: auto; /* Let it shrink to content */
-            background-color: #3b82f6; /* Tailwind blue-500 */
-            color: white;
-            border-radius: 0.375rem; /* rounded-md */
-            overflow: hidden; /* Ensure inner hover respects rounded corners */
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* Mimic shadow of other popups/buttons */
+            left: 1rem; 
+            width: auto; 
+            background-color: var(--md-surface-color); /* Surface color */
+            color: var(--md-text-primary-on-background); /* Standard text color */
+            border-radius: 4px; 
+            overflow: hidden; 
+            box-shadow: var(--md-elevation-2); /* Material shadow */
+            transition: opacity 0.15s ease-out, transform 0.15s ease-out;
         }
         #slash-command-popup div {
-            /* padding: 0.5rem 0.75rem; */
-            padding: 0.5rem 1rem; /* py-2 px-4 equivalent */
+            padding: 0.75rem 1rem; /* Consistent padding */
             cursor: pointer;
-            text-align: center; /* Center the text like a button */
+            text-align: left; /* Align text left for list items */
+            font-size: 0.9rem;
+            transition: background-color 0.15s ease-out;
         }
         #slash-command-popup div:hover {
-            background-color: #2563eb; /* Tailwind blue-600 for hover */
+            background-color: rgba(0,0,0,0.08); /* Subtle hover for light theme */
         }
 
-        /* Style for the /run command tag in input */
+        /* Style for the /run command tag in input - Material Chip like */
         #run-command-tag {
-            flex-shrink: 0; /* Prevent tag from shrinking */
-            border-radius: 0.375rem; /* rounded-md */
-            position: relative; /* For absolute positioning of the close button */
-            overflow: hidden; /* To ensure hover effects confined */
+            flex-shrink: 0; 
+            border-radius: 16px; /* Pill shape for chips */
+            position: relative; 
+            overflow: visible; /* Allow button to be slightly outside if needed */
             transition: background-color 0.2s ease-in-out;
-            margin-left: 0.25rem; /* Added for spacing from left edge of wrapper */
-            margin-right: 0.5rem; /* Added for spacing from the message input */
+            margin-left: 0.5rem; 
+            margin-right: 0.5rem; 
+            padding: 0.25rem 0.75rem; /* Adjust padding */
+            font-size: 0.8rem;
+            box-shadow: var(--md-elevation-1);
         }
-        #run-command-tag::before { /* Overlay for hover effect */
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: rgba(0, 0, 0, 0.2);
-            opacity: 0;
-            transition: opacity 0.2s ease-in-out, backdrop-filter 0.2s ease-in-out; /* Added backdrop-filter to transition */
-            pointer-events: none; /* Allow clicks to pass through to button */
-            backdrop-filter: blur(0); /* Initial state: no blur */
-            border-radius: inherit; /* Inherit border-radius from parent for proper clipping */
-        }
+        /* Removed ::before and adjusted remove button directly */
         #remove-run-tag-btn {
-            /* display: none; */ /* Hidden by default - now controlled by opacity */
-            opacity: 0;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            line-height: 1; /* Ensure icon aligns well */
+            opacity: 0.6; /* Slightly visible by default */
+            position: relative; /* Adjusted for inline display */
+            transform: none;
+            line-height: 1; 
             transition: opacity 0.2s ease-in-out;
-            z-index: 10; /* Ensure it's above the overlay */
-            padding: 0.25rem; /* Add some padding to make it easier to click */
-            border-radius: 9999px; /* Make it circular */
-            background-color: rgba(0,0,0,0.3); /* Slight background for visibility */
+            z-index: 10; 
+            padding: 0.1rem; /* Smaller padding */
+            margin-left: 0.35rem; /* Space from text */
+            border-radius: 50%; 
+            background-color: transparent;
+            color: inherit; /* Inherit color from parent */
         }
-        #run-command-tag:hover::before {
-            opacity: 1; /* Show overlay on hover */
-            backdrop-filter: blur(2px); /* Apply blur on hover */
-        }
-        #run-command-tag:hover #remove-run-tag-btn {
-            /* display: inline-flex; */ /* Show on hover of the tag */
+         #run-command-tag:hover #remove-run-tag-btn {
             opacity: 1;
-            align-items: center;
         }
+        #remove-run-tag-btn svg {
+             width: 0.75rem; /* Smaller icon */
+             height: 0.75rem;
+        }
+
+        /* Additional global styles for Material feel */
+        button, input[type="submit"], input[type="button"] {
+            transition: box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            text-transform: uppercase; /* Material buttons are often uppercase */
+            letter-spacing: 0.05em;
+            font-weight: 500;
+        }
+        button:hover, input[type="submit"]:hover, input[type="button"]:hover {
+            box-shadow: var(--md-elevation-1); /* Subtle shadow on hover for primary buttons */
+        }
+        /* Specific button styles if needed */
+        .button-primary {
+            background-color: var(--md-primary-color);
+            color: white;
+        }
+        .button-primary:hover {
+            background-color: var(--md-primary-color-dark);
+            box-shadow: var(--md-elevation-2);
+        }
+        
+        /* Chat bubbles */
+        #chat-history .p-3.rounded-lg { /* Target existing chat bubbles more specifically */
+            box-shadow: var(--md-elevation-1);
+            border: 1px solid transparent; /* Prepare for potential border changes */
+            margin-bottom: 0.75rem !important; /* Override Tailwind space-y */
+        }
+        #chat-history .p-3.rounded-lg.ml-auto { /* User messages */
+            background-color: var(--md-accent-color); /* Use accent for user */
+            color: white;
+             border-radius: 16px 16px 4px 16px; /* Slightly different bubble shape */
+        }
+         #chat-history .p-3.rounded-lg.mr-auto { /* Assistant messages */
+            background-color: var(--md-surface-color);
+            color: var(--md-text-primary-on-background);
+            border: 1px solid var(--md-border-color);
+            border-radius: 16px 16px 16px 4px;
+        }
+
+        /* Prose adjustments for chat bubbles */
+        #chat-history .prose {
+             font-size: 0.95rem; /* Slightly larger base font for chat */
+        }
+         #chat-history .prose p {
+             margin-top: 0.5em;
+             margin-bottom: 0.5em;
+         }
+         #chat-history .prose pre { /* Style code blocks within chat messages */
+             margin-top: 0.75em;
+             margin-bottom: 0.75em;
+             background-color: rgba(0,0,0,0.05); /* Different background for nested code */
+             color: var(--md-text-primary-on-background); /* Ensure text is dark */
+             box-shadow: none;
+             border: 1px solid rgba(0,0,0,0.1);
+         }
+         #chat-history .ml-auto .prose pre { /* User message code blocks */
+             background-color: rgba(255,255,255,0.1);
+             border-color: rgba(255,255,255,0.2);
+         }
+
     </style>
 </head>
 <body class="bg-gray-100 font-sans flex flex-col h-screen">
@@ -659,7 +713,7 @@
             messageDiv.className = `p-3 rounded-lg bg-yellow-100 border border-yellow-300 text-yellow-800 max-w-3xl mr-auto prose prose-sm max-w-none shadow`;
 
             let htmlContent = `<p class="font-semibold">${escapeHtml(messageText)}</p>`;
-            htmlContent += `<pre class="bg-yellow-50 p-2 rounded mt-2 border border-yellow-200"><code class="language-sql text-yellow-900">${escapeHtml(queryToConfirm)}</code></pre>`;
+            htmlContent += `<pre class="bg-yellow-50 p-2 rounded mt-2 border border-yellow-200"><code class="language-sql text-black">${escapeHtml(queryToConfirm)}</code></pre>`;
             htmlContent += `<div class="mt-3 flex space-x-2">
                                 <button class="confirm-execute-btn bg-green-600 hover:bg-green-700 text-white font-semibold py-1.5 px-4 rounded text-sm shadow-sm transition-colors duration-150" data-query="${escapeHtml(queryToConfirm)}">Execute</button>
                                 <button class="cancel-execute-btn bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-4 rounded text-sm shadow-sm transition-colors duration-150">Cancel</button>
