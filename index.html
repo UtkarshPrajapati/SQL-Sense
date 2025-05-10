@@ -415,15 +415,11 @@
         }
 
         #schema-display-header h3 {
-            font-semibold: 500; /* Material medium */
+            font-weight: 500; /* Material medium */
             color: var(--md-text-primary-on-background);
             font-size: 1rem;
         }
 
-        #schema-content {
-            /* Styles for the scrollable content area if needed, */
-            /* but overflow-y on #schema-display should handle it */
-        }
         
         .schema-item {
             padding: 0.35rem 0.5rem; /* Reduced padding */
@@ -437,8 +433,8 @@
         .schema-item:hover {
             background-color: rgba(0,0,0,0.04);
         }
-        .schema-item i.lucide {
-            margin-right: 0.6rem; /* Space between icon and text */
+        .schema-item svg.lucide { /* Changed from i.lucide */
+            margin-right: 0.625rem; /* Adjusted from 1.2rem (testing value) to 10px */
             width: 0.9rem; /* Icon size */
             height: 0.9rem;
             color: var(--md-primary-color); /* Use primary color for icons */
