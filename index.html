@@ -747,17 +747,22 @@
         }
 
         function setLoadingState(isLoading) {
+            // messageInput, sendButton, sendSpinner are global consts pointing to correct elements.
+
+            // Dynamically find the visual SVG arrow icon within the sendButton
+            const visualArrowIcon = sendButton.querySelector('svg.lucide-arrow-up'); 
+
             if (isLoading) {
                 messageInput.disabled = true;
                 sendButton.disabled = true;
-                if (sendIcon) sendIcon.classList.add('hidden'); // Use sendIcon
-                sendSpinner.classList.remove('hidden');
+                if (visualArrowIcon) visualArrowIcon.classList.add('hidden'); // Hide the SVG arrow icon
+                sendSpinner.classList.remove('hidden');                      // Show the spinner div
                 sendSpinner.innerHTML = createSpinnerSvg(); // Use helper
             } else {
                 messageInput.disabled = false;
                 sendButton.disabled = false;
-                if (sendIcon) sendIcon.classList.remove('hidden'); // Use sendIcon
-                sendSpinner.classList.add('hidden');
+                if (visualArrowIcon) visualArrowIcon.classList.remove('hidden'); // Show the SVG arrow icon
+                sendSpinner.classList.add('hidden');                         // Hide the spinner div
                 messageInput.focus(); // Refocus input after response
             }
         }
