@@ -1,31 +1,36 @@
-# 🤖 SQL LLM Agent: Your Intelligent Database Assistant 📊💻
+# 🤖 SQL-Sense: Your Intelligent Database Assistant
+
+[![Python Version](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Framework](https://img.shields.io/badge/Framework-FastAPI-05998b.svg)](https://fastapi.tiangolo.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Welcome to the SQL LLM Agent project! This tool combines Large Language Models (LLMs) with SQL databases to help you interact with your data using natural language, generate SQL queries, and gain insights. ✨
 
-This app works with the help of Gemini API.
 
-## 🌟 Overview
 
-This project provides an intelligent interface to interact with SQL databases. Key features include:
+**SQL-Sense** is an intelligent web application that transforms the way you interact with your databases. By leveraging the power of Google's Gemini Large Language Model (LLM), it allows you to ask complex questions in plain English, instantly generating and executing the corresponding SQL queries. Get not just data, but meaningful, AI-driven insights with a single prompt.
 
--   **Natural Language Processing:** Ask questions in plain English, and let the LLM translate them into SQL queries. 🗣️➡️🔣
--   **SQL Query Generation:** The LLM generates optimized SQL queries based on your questions. 🧠
--   **Data Retrieval:** Execute the generated SQL and fetch the results directly from your database. 🗄️
--   **Insight Generation:** Obtain deep insights from the fetched data. 📈
--   **Direct SQL Execution:** You can use `/run` command to directly execute an SQL command.
--   **Interactive Chat Interface:** A user-friendly chat interface for a seamless experience. 💬
--   **Database Schema Awareness:** Understands your database schema to formulate accurate queries. 📚
+## ✨ Key Features
+
+-   **🤖 Natural Language to SQL:** Ask questions in English; get SQL queries in return.
+-   **🚀 Direct SQL Execution:** A `/run` command to execute raw SQL queries for power users.
+-   **📈 AI-Powered Insights:** Automatically generates summaries and insights from query results.
+-   **👁️ Dynamic Schema Viewer:** An interactive sidebar displays your database schemas and tables in real-time.
+-   **💬 Modern Chat Interface:** A sleek, responsive, and user-friendly chat UI for a seamless experience.
+-   **⚙️ Tech Stack:** Powered by FastAPI, Google Gemini, MySQL, and a clean HTML/TailwindCSS frontend.
+
+---
 
 ## 🚀 Project Showcase
 
-A visual tour of the SQL LLM Agent, from its architecture to its user interface and the technologies that power it.
+A visual tour of SQL-Sense, from its architecture to its user interface.
 
-### 🏛️ System Architecture & Workflow
-These diagrams illustrate the core structure and operational flow of the application.
+<details>
+<summary><strong>🏛️ System Architecture & Workflow (Click to Expand)</strong></summary>
 
 <p align="center">
   <strong>1. High-Level System Architecture</strong><br>
-  <em>This diagram shows the main components of the system, including the user interface, the FastAPI backend, the SQL database, and the Gemini LLM, and how they interact.</em>
+  <em>The main components of the system: UI, FastAPI Backend, SQL Database, and the Gemini LLM.</em>
 </p>
 <p align="center">
   <img src="assets/high-level-architecture.png" alt="High-Level System Architecture" width="700"/>
@@ -33,14 +38,16 @@ These diagrams illustrate the core structure and operational flow of the applica
 
 <p align="center">
   <strong>2. Application Workflow</strong><br>
-  <em>This flowchart details the step-by-step process, from the user submitting a query to the AI generating SQL, fetching data, and returning insights.</em>
+  <em>From user prompt to AI-generated SQL, data retrieval, and final insights.</em>
 </p>
 <p align="center">
   <img src="assets/data-flow-diagram.png" alt="SQL Assistant Workflow" width="700"/>
 </p>
 
-### 🗄️ Database Schema
-An overview of the database structure used in this project.
+</details>
+
+<details>
+<summary><strong>🗄️ Database Schema (Click to Expand)</strong></summary>
 
 <p align="center">
   <strong>Employee & Salary Schema</strong><br>
@@ -58,8 +65,10 @@ An overview of the database structure used in this project.
   <img src="assets/er-diagram-products.png" alt="Product ER Diagram" width="600"/>
 </p>
 
-### 💻 User Interface
-Screenshots of the application in action.
+</details>
+
+<details>
+<summary><strong>💻 User Interface (Click to Expand)</strong></summary>
 
 <p align="center">
   <strong>Main Chat Interface</strong><br>
@@ -85,29 +94,14 @@ Screenshots of the application in action.
   <img src="assets/ui-show-databases.png" alt="Database Schema Viewer" width="700"/>
 </p>
 
-### 🛠️ Technologies Used
-The core technologies and libraries that make this project possible.
+</details>
+
+---
+
+## 🛠️ Technologies & Core Libraries
 
 <table align="center">
   <tr>
-    <td align="center" width="140">
-      <a href="https://www.w3.org/TR/CSS/#css" target="_blank" rel="noreferrer">
-        <img src="https://raw.githubusercontent.com/danielcranney/readme-generator/main/public/icons/skills/css3-colored.svg" width="100" height="100" alt="CSS3" />
-      </a>
-      <br><strong>CSS3</strong>
-    </td>
-    <td align="center" width="140">
-      <a href="https://developer.mozilla.org/en-US/docs/Glossary/HTML5" target="_blank" rel="noreferrer">
-        <img src="https://raw.githubusercontent.com/danielcranney/readme-generator/main/public/icons/skills/html5-colored.svg" width="100" height="100" alt="HTML5" />
-      </a>
-      <br><strong>HTML5</strong>
-    </td>
-    <td align="center" width="140">
-      <a href="https://tailwindcss.com" target="_blank" rel="noreferrer">
-        <img src="https://raw.githubusercontent.com/danielcranney/readme-generator/main/public/icons/skills/tailwindcss-colored.svg" width="100" height="100" alt="TailwindCSS" />
-      </a>
-      <br><strong>TailwindCSS</strong>
-    </td>
     <td align="center" width="140">
       <a href="https://www.python.org/" target="_blank" rel="noreferrer">
         <img src="https://raw.githubusercontent.com/danielcranney/readme-generator/main/public/icons/skills/python-colored.svg" width="100" height="100" alt="Python" />
@@ -120,6 +114,12 @@ The core technologies and libraries that make this project possible.
       </a>
       <br><strong>FastAPI</strong>
     </td>
+     <td align="center" width="140">
+      <a href="https://deepmind.google/technologies/gemini/" target="_blank" rel="noreferrer">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg" height="100" alt="Google Gemini" />
+      </a>
+      <br><strong>Google Gemini</strong>
+    </td>
     <td align="center" width="140">
       <a href="https://www.mysql.com/" target="_blank" rel="noreferrer">
         <img src="https://raw.githubusercontent.com/danielcranney/readme-generator/main/public/icons/skills/mysql-colored.svg" width="100" height="100" alt="MySQL" />
@@ -127,79 +127,144 @@ The core technologies and libraries that make this project possible.
       <br><strong>MySQL</strong>
     </td>
     <td align="center" width="140">
-      <a href="https://deepmind.google/technologies/gemini/" target="_blank" rel="noreferrer">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg" height="80" alt="Google Gemini" />
+      <a href="https://tailwindcss.com" target="_blank" rel="noreferrer">
+        <img src="https://raw.githubusercontent.com/danielcranney/readme-generator/main/public/icons/skills/tailwindcss-colored.svg" width="100" height="100" alt="TailwindCSS" />
       </a>
-      <br><strong>Google Gemini</strong>
+      <br><strong>TailwindCSS</strong>
+    </td>
+    <td align="center" width="140">
+      <a href="https://developer.mozilla.org/en-US/docs/Glossary/HTML5" target="_blank" rel="noreferrer">
+        <img src="https://raw.githubusercontent.com/danielcranney/readme-generator/main/public/icons/skills/html5-colored.svg" width="100" height="100" alt="HTML5" />
+      </a>
+      <br><strong>HTML5</strong>
     </td>
   </tr>
 </table>
 
-## 📁 File Descriptions
+---
+## ⚙️ Setup and Installation
 
--   **`gen-data.py`:** 🔄
-    -   Uses the `Faker` library to generate realistic employee and salary data.
-    -   Creates `employees` and `salaries` tables with appropriate sample data in MySQL.
--   **`index.html`:** 🎨
-    -   The main front-end user interface of the project.
-    -   Built with HTML, Tailwind CSS, Lucide icons, and marked.js for markdown rendering.
-    -   Provides an interactive chat experience with natural language input.
-    -   Displays database schema dynamically and shows query results and insights.
--   **`requirements.txt`:** 📦
-    -   Lists all the Python dependencies required to run the project.
-    -   Includes libraries like `fastapi`, `mysql-connector-python`, `pydantic`, `requests`, `google-generativeai`, and more.
--   **`sql_assistant.py`:** 🚀
-    -   Contains the core application logic using FastAPI.
-    -   Manages MySQL database connections and query execution.
-    -   Integrates with the Gemini API for SQL generation from natural language and data insight generation.
-    -   Defines API endpoints for the UI, schema fetching, and chat interaction.
+Follow these steps to get SQL-Sense running on your local machine.
 
+### 1. Prerequisites
 
-## 🛠️ Installation Steps
+-   **Python 3.11+**
+-   **Git**
+-   An active **MySQL** database service.
 
-1.  **Clone the Repository:**
+### 2. Clone the Repository
+```bash
+git clone https://github.com/UtkarshPrajapati/SQL-Sense.git
+cd SQL-Sense
 ```
-    git clone https://github.com/UtkarshPrajapati/SQL-Sense.git
-    cd SQL-Sense
-```
-2.  **Create a Virtual Environment:**
-```
-    python3 -m venv .venv
-```
-3.  **Activate the Virtual Environment:**
-    - On Windows:
-```
-    .venv\Scripts\activate     
-```
-4.  **Install Dependencies:**
-```
-    pip install -r requirements.txt 
-```
-5.  **Set Up the Database:**
-    -   Make sure you have MySQL installed and running.
-    -   Update the database credentials in `.env` ( `MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`,`GEMINI_API_KEY`).
-    -   Run the following to create the database and insert sample data: `python gen-data.py`
 
-## 🚀 Usage
+### 3. Set Up Virtual Environment
 
-1.  **Start the WebApp:**
-    -   You can start the services manually:
-        - Run `uvicorn sql_assistant:app --reload`
-        - Open `http://127.0.0.1:8000` in a browser for the main UI.
-2.  **Interact with the Agent:**
-    -   Type your questions in natural language (e.g., "Show me all employees in the HR department").
-    -   Use `/run` command to execute direct SQL queries (e.g., `/run SELECT * FROM employees LIMIT 10;`).
-    -   View query results, insights, and database schema dynamically.
+It's highly recommended to use a virtual environment to manage project dependencies.
 
-## ⚙️ Configuration
+```bash
+# Create a virtual environment
+python -m venv venv
 
--   **Database:** Adjust the `MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD`, and `MYSQL_DATABASE` variables in the `.env` file.
--   **LLM and Gemini API:** Set the `GEMINI_API_KEY` in the `.env` file.
+# Activate it
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+```
+
+### 4. Configure Environment Variables
+
+You'll need to provide your database credentials and Gemini API key.
+
+1.  Create a new file named `.env` in the root of the project.
+2.  Copy the contents of `.env.example` into it and fill in your details.
+
+<details>
+<summary><strong>Example `.env` structure (Click to Expand)</strong></summary>
+
+```
+# MySQL Database Configuration
+MYSQL_HOST=localhost
+MYSQL_USER=root
+MYSQL_PASSWORD=your_mysql_password
+MYSQL_DATABASE=sqlllm
+
+# Google Gemini API Configuration
+GEMINI_API_KEY=your_gemini_api_key
+```
+</details>
+
+### 5. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 6. Prepare the Database
+
+Run the provided script to create the necessary tables and populate them with realistic sample data.
+
+```bash
+python gen-data.py
+```
+This script will create and populate `employees`, `salaries`, and `products` tables in the database you specified in your `.env` file.
+
+### 7. Run the Application
+You're all set! Start the FastAPI server using Uvicorn.
+```bash
+uvicorn sql_assistant:app --reload
+```
+The `--reload` flag enables hot-reloading for development. The application will be live at **http://127.0.0.1:8000**.
+
+---
+
+## 📖 How to Use
+
+1.  **Open the Web Interface:** Navigate to `http://127.0.0.1:8000` in your web browser.
+2.  **View Schema:** Click the "Show Databases" button to see the tables and columns the AI is aware of.
+3.  **Ask a Question:** Type a question in plain English, like `show me all employees and their salaries`.
+4.  **Execute Direct SQL:** For precise control, use the `/run` command followed by a SQL query. For example: `/run SELECT product_name, price FROM products WHERE price > 50;`
+5.  **Review Results:** The application will display the generated SQL, the data results in a table, and a summary of insights derived by the AI.
+
+---
+
+## 📁 Project Structure
+<pre>
+.
+├── assets/                 # Images, diagrams, and other static assets for the README.
+├── <b>gen-data.py</b>           # Script to generate and insert sample data into the database.
+├── <b>index.html</b>            # The single-page frontend for the application.
+├── <b>requirements.txt</b>    # A list of all Python dependencies.
+├── <b>sql_assistant.py</b>      # The core FastAPI backend logic, including API endpoints and AI integration.
+├── .env.example            # Example environment variables file.
+├── .gitignore              # Specifies files for Git to ignore.
+└── README.md               # You are here!
+</pre>
+
+---
 
 ## 🤝 Contributing
 
-Contributions are welcome! If you'd like to enhance this project, feel free to fork the repository and submit a pull request. Please follow the existing code style and include tests with your changes. 😊
+Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
 
-## 👏 Credits
+If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
 
-Thanks to the amazing open-source community for creating the tools and libraries that made this project possible. 🙌
+1.  Fork the Project
+2.  Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3.  Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4.  Push to the Branch (`git push origin feature/AmazingFeature`)
+5.  Open a Pull Request
+
+---
+
+## 📜 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+---
+
+## 👏 Acknowledgements
+
+-   The amazing open-source community.
+-   The teams behind FastAPI, Google Gemini, and Uvicorn.
+-   Icons and visuals from [Lucide Icons](https://lucide.dev/) and [SVG Repo](https://www.svgrepo.com/).
