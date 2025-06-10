@@ -3,12 +3,40 @@
 [![Python Version](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Framework](https://img.shields.io/badge/Framework-FastAPI-05998b.svg)](https://fastapi.tiangolo.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Made with Love](https://img.shields.io/badge/Made%20with-❤-ff69b4)](#)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
 
-Welcome to the SQL LLM Agent project! This tool combines Large Language Models (LLMs) with SQL databases to help you interact with your data using natural language, generate SQL queries, and gain insights. ✨
+SQL-Sense bridges the gap between humans and relational data. Ask questions in plain English and instantly receive optimized SQL, live results, and AI-generated insights – all without leaving the browser. ✨
 
+---
 
+## 📚 Table of Contents
 
-**SQL-Sense** is an intelligent web application that transforms the way you interact with your databases. By leveraging the power of Google's Gemini Large Language Model (LLM), it allows you to ask complex questions in plain English, instantly generating and executing the corresponding SQL queries. Get not just data, but meaningful, AI-driven insights with a single prompt.
+1. [Why SQL-Sense?](#why-sql-sense)
+2. [Key Features](#key-features)
+3. [Project Showcase](#project-showcase)
+4. [Technologies and Core Libraries](#technologies-and-core-libraries)
+5. [Setup and Installation](#setup-and-installation)
+6. [How to Use](#how-to-use)
+7. [API Endpoints](#api-endpoints)
+8. [Troubleshooting & FAQ](#troubleshooting--faq)
+9. [Project Structure](#project-structure)
+10. [Contributing](#contributing)
+11. [License](#license)
+12. [Acknowledgements](#acknowledgements)
+
+---
+
+## ❓ Why SQL-Sense?
+
+Traditional SQL clients are great at running queries—but they assume you already *know* SQL and your schema inside-out. SQL-Sense removes that barrier:
+
+* **No more context-switching.** Ask questions in plain language and stay focused on your analysis.
+* **Instant productivity.** New teammates or non-technical stakeholders can explore data without a crash-course in SQL.
+* **Better insights, faster.** AI-generated summaries highlight trends you might miss in raw tables.
+* **Safety first.** Potentially destructive queries are intercepted and require explicit confirmation.
+
+---
 
 ## ✨ Key Features
 
@@ -98,7 +126,7 @@ A visual tour of SQL-Sense, from its architecture to its user interface.
 
 ---
 
-## 🛠️ Technologies & Core Libraries
+## 🛠️ Technologies and Core Libraries
 
 <table align="center">
   <tr>
@@ -207,7 +235,11 @@ Run the provided script to create the necessary tables and populate them with re
 ```bash
 python gen-data.py
 ```
-This script will create and populate `employees`, `salaries`, and `products` tables in the database you specified in your `.env` file.
+This script will create two databases:
+1.  **`sqlllm`** (or the value of `MYSQL_DATABASE` in `.env`): Contains `employees` and `salaries` tables.
+2.  **`StoreDB`** (or the value of `MYSQL_DATABASE_STORE` in `.env`): Contains the `products` table.
+
+It will then populate these tables with sample data.
 
 ### 7. Run the Application
 You're all set! Start the FastAPI server using Uvicorn.
@@ -228,18 +260,77 @@ The `--reload` flag enables hot-reloading for development. The application will 
 
 ---
 
-## 📁 Project Structure
-<pre>
+## 🔗 API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| **GET** | `/` | Serves the `index.html` single-page application. |
+| **GET** | `/schema` | Returns JSON containing databases, tables, and columns the assistant can access. |
+| **POST** | `/config` | Body: `{ "mysql_host": "...", "mysql_user": "...", "mysql_password": "...", "mysql_database": "...", "gemini_api_key": "..." }` – Updates connection credentials and tests them. |
+| **POST** | `/chat` | Body: `{ "message": "<natural-language question or /run <SQL>>" }` – Main interaction endpoint: accepts NL queries or `/run` SQL commands, returns results/insights. |
+| **POST** | `/execute_confirmed_sql` | Body: `{ "query": "<SQL previously flagged for confirmation>" }` – Executes DDL/DML queries that the user has reviewed and approved. |
+
+All responses are JSON and follow the shape documented in the code. Unhandled errors are returned with appropriate HTTP status codes.
+
+---
+
+## 🛟 Troubleshooting & FAQ
+
+<details>
+<summary><strong>The server starts but `/schema` returns an empty list</strong></summary>
+
+**Cause:** The MySQL credentials in your `.env` file don't have permission to see user databases, or no user databases exist.
+
+**Fix:**
+1. Verify `MYSQL_USER` / `MYSQL_PASSWORD` in `.env`.
+2. Check that your user has at least `SELECT` privilege on the target databases.
+3. Use the `/config` endpoint (or restart the app) after updating credentials.
+</details>
+
+<details>
+<summary><strong>Gemini replies with "Error: Gemini API not configured"</strong></summary>
+
+The `GEMINI_API_KEY` environment variable is missing or invalid.
+
+* Obtain an API key from Google AI Studio.
+* Add it to your `.env` file and/or update via the `/config` endpoint.
+* Restart the backend (or let `/config` re-initialize the key).
+</details>
+
+<details>
+<summary><strong>"Client does not support authentication protocol" MySQL error</strong></summary>
+
+Your MySQL server may be using the newer `caching_sha2_password` plugin while the connector expects `mysql_native_password`.
+
+```sql
+ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'your_password';
+FLUSH PRIVILEGES;
+```
+
+Alternatively, create a dedicated read-only user for SQL-Sense with compatible auth.
+</details>
+
+<details>
+<summary><strong>The UI shows "pending..." after I submit a question</strong></summary>
+
+Check the backend logs; the LLM may be taking longer than expected or returning a safety block. Increase the `timeout` on your HTTP client if you've reverse-proxied the API.
+</details>
+
+---
+
+## Project Structure
+```
 .
-├── assets/                 # Images, diagrams, and other static assets for the README.
-├── <b>gen-data.py</b>           # Script to generate and insert sample data into the database.
-├── <b>index.html</b>            # The single-page frontend for the application.
-├── <b>requirements.txt</b>    # A list of all Python dependencies.
-├── <b>sql_assistant.py</b>      # The core FastAPI backend logic, including API endpoints and AI integration.
-├── .env.example            # Example environment variables file.
-├── .gitignore              # Specifies files for Git to ignore.
-└── README.md               # You are here!
-</pre>
+├── .env.example        # Environment variable template
+├── .gitignore          # Files to ignore for git
+├── README.md           # This file
+├── assets              # Images and architectural diagrams
+├── gen-data.py         # Generates and populates the database
+├── index.html          # Main frontend file
+├── requirements.txt    # Python dependencies
+├── sql_assistant.py    # FastAPI backend logic
+└── venv                # Virtual environment folder
+```
 
 ---
 
@@ -259,7 +350,7 @@ If you have a suggestion that would make this better, please fork the repo and c
 
 ## 📜 License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the MIT License.
 
 ---
 
