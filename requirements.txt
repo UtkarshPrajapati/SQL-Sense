@@ -1,9 +1,8 @@
-Faker==37.3.0
-fastapi==0.115.12
+Faker
+fastapi
 mysql-connector-python
-protobuf
-pydantic==2.11.5
-python-dotenv==1.1.0
-uvicorn==0.34.3
+pydantic
+uvicorn
 google-generativeai
 Jinja2
+python-dotenv
