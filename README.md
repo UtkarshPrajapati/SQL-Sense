@@ -15,15 +15,15 @@ SQL-Sense bridges the gap between humans and relational data. Ask questions in p
 1. [Why SQL-Sense?](#-why-sql-sense)
 2. [Key Features](#-key-features)
 3. [Project Showcase](#-project-showcase)
-4. [Technologies and Core Libraries](#-technologies-and-core-libraries)
-5. [Setup and Installation](#-setup-and-installation)
-6. [How to Use](#-how-to-use)
-7. [API Endpoints](#-api-endpoints)
-8. [Troubleshooting & FAQ](#-troubleshooting--faq)
-9. [Project Structure](#project-structure)
-10. [Contributing](#-contributing)
-11. [License](#-license)
-12. [Acknowledgements](#-acknowledgements)
+4. [Technologies and Core Libraries](#%EF%B8%8F-technologies-and-core-libraries)
+6. [Setup and Installation](#%EF%B8%8F-setup-and-installation)
+8. [How to Use](#-how-to-use)
+9. [API Endpoints](#-api-endpoints)
+10. [Troubleshooting & FAQ](#-troubleshooting--faq)
+11. [Project Structure](#-project-structure)
+12. [Contributing](#-contributing)
+13. [License](#-license)
+14. [Acknowledgements](#-acknowledgements)
 
 ---
 
@@ -318,7 +318,7 @@ Check the backend logs; the LLM may be taking longer than expected or returning 
 
 ---
 
-## Project Structure
+## 📂 Project Structure
 ```
 .
 ├── .env.example        # Environment variable template
