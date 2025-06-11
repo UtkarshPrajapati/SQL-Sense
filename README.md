@@ -4,7 +4,7 @@
 [![Framework](https://img.shields.io/badge/Framework-FastAPI-05998b.svg)](https://fastapi.tiangolo.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Made with Love](https://img.shields.io/badge/Made%20with-❤-ff69b4)](#)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#-contributing)
 
 SQL-Sense bridges the gap between humans and relational data. Ask questions in plain English and instantly receive optimized SQL, live results, and AI-generated insights – all without leaving the browser. ✨
 
@@ -12,18 +12,18 @@ SQL-Sense bridges the gap between humans and relational data. Ask questions in p
 
 ## 📚 Table of Contents
 
-1. [Why SQL-Sense?](#why-sql-sense)
-2. [Key Features](#key-features)
-3. [Project Showcase](#project-showcase)
-4. [Technologies and Core Libraries](#technologies-and-core-libraries)
-5. [Setup and Installation](#setup-and-installation)
-6. [How to Use](#how-to-use)
-7. [API Endpoints](#api-endpoints)
-8. [Troubleshooting & FAQ](#troubleshooting--faq)
+1. [Why SQL-Sense?](#-why-sql-sense)
+2. [Key Features](#-key-features)
+3. [Project Showcase](#-project-showcase)
+4. [Technologies and Core Libraries](#-technologies-and-core-libraries)
+5. [Setup and Installation](#-setup-and-installation)
+6. [How to Use](#-how-to-use)
+7. [API Endpoints](#-api-endpoints)
+8. [Troubleshooting & FAQ](#-troubleshooting--faq)
 9. [Project Structure](#project-structure)
-10. [Contributing](#contributing)
-11. [License](#license)
-12. [Acknowledgements](#acknowledgements)
+10. [Contributing](#-contributing)
+11. [License](#-license)
+12. [Acknowledgements](#-acknowledgements)
 
 ---
 
