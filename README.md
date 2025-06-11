@@ -228,7 +228,9 @@ GEMINI_API_KEY=your_gemini_api_key
 pip install -r requirements.txt
 ```
 
-### 6. Prepare the Database
+### 6. (Optional) Prepare the Sample Database
+
+This step is only necessary if you want to use the pre-defined sample data to test the application. If you intend to connect to your own existing database, you can skip this.
 
 Run the provided script to create the necessary tables and populate them with realistic sample data.
 
