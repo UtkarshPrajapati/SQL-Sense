@@ -188,7 +188,7 @@ def get_db_connection(db_name: Optional[str] = None):
         logger.error(f"Database connection error (connecting to {db_name or 'server'}): {err}")
         return None 
 
-def execute_sql_query(query: str) -> Tuple[Optional[List[Tuple]], Optional[List[str]], Optional[str], int, Optional[str]]:
+def execute_sql_query(query: str) -> Tuple[Optional[List[Any]], Optional[List[str]], Optional[str], int, Optional[str]]:
     """
     Executes an SQL query against the database.
 
@@ -206,7 +206,7 @@ def execute_sql_query(query: str) -> Tuple[Optional[List[Tuple]], Optional[List[
     logger.info(f"Executing Query: {query}")
     conn = None
     cursor = None
-    results: Optional[List[Tuple]] = None
+    results: Optional[List[Any]] = None
     column_names: Optional[List[str]] = None
     column_types_str: Optional[str] = None
 
@@ -277,13 +277,13 @@ def execute_sql_query(query: str) -> Tuple[Optional[List[Tuple]], Optional[List[
             conn.close()
             logger.info("DB connection closed.")
 
-def fetch_all_tables_and_columns() -> Dict[str, Dict[str, List[str]]]:
+def fetch_all_tables_and_columns() -> Dict[str, Dict[str, Any]]:
     """
     Fetches all non-system databases, their tables, and columns.
     Returns: Dict[db_name, Dict[table_name, List[column_name]]]
     Returns an error structure if connection or queries fail.
     """
-    schema_info: Dict[str, Dict[str, List[str]]] = {}
+    schema_info: Dict[str, Dict[str, Any]] = {}
     conn = None
     cursor = None
     system_databases = {'information_schema', 'mysql', 'performance_schema', 'sys'} # Exclude system databases
@@ -297,7 +297,7 @@ def fetch_all_tables_and_columns() -> Dict[str, Dict[str, List[str]]]:
         cursor = conn.cursor()
         cursor.execute("SHOW DATABASES;") # Get all databases
         fetch_result = cursor.fetchall()
-        if fetch_result is None:
+        if not fetch_result:
             logger.warning("No databases returned from SHOW DATABASES query.")
             return {}
         databases = [row[0] for row in fetch_result if row[0] not in system_databases]
@@ -430,7 +430,7 @@ SQL Query:"""
         return "Error: Failed to communicate with the AI model for SQL generation."
 
 @ensure_gemini_initialized
-def get_insights_with_gemini(original_query: str, sql_query: str, results: List[Tuple], columns: List[str], col_types: str) -> str:
+def get_insights_with_gemini(original_query: str, sql_query: str, results: List[Any], columns: List[str], col_types: str) -> str:
     """Generates insights on the data using the Gemini API."""
     if not results:
         return "No results to analyze."
@@ -610,14 +610,16 @@ async def update_config(config_request: ConfigRequest):
         gemini_status = "failed: unknown"
         original_key = GEMINI_API_KEY
         try: # Test Gemini API key
-            os.environ["GEMINI_API_KEY"] = gemini_api_key
-            genai.configure(api_key=gemini_api_key)
-            test_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-            test_response = test_model.generate_content("Hello")
-            if test_response.text:
-                gemini_status = "success"
+            if gemini_api_key:
+                genai.configure(api_key=gemini_api_key)
+                test_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+                test_response = test_model.generate_content("Hello")
+                if test_response.text:
+                    gemini_status = "success"
+                else:
+                    gemini_status = "failed: no response"
             else:
-                gemini_status = "failed: no response"
+                gemini_status = "not_provided"
         except Exception as e:
             logger.error(f"Failed to initialize Gemini API with new key: {e}")
             gemini_status = f"failed: {e}"
@@ -652,13 +654,22 @@ async def handle_chat(chat_request: ChatRequest):
 
     try:
         if user_message.lower().startswith("/run "):
-            query_to_run = user_message[5:].strip() 
+            query_to_run = user_message[5:].strip()
             if not query_to_run:
                 response_data = {"type": "error", "content": "No query provided after /run command."}
                 return JSONResponse(content=response_data)
+
+            if is_modifying_query(query_to_run):
+                logger.warning(f"User is attempting to run modifying query, requires confirmation: {query_to_run}")
+                response_data = {
+                    "type": "confirm_execution",
+                    "query": query_to_run,
+                    "message": "You are attempting to run the following query which may modify your data or database structure. Please review and confirm execution:"
+                }
+                return JSONResponse(content=jsonable_encoder(response_data))
         else:
             logger.info(f"Processing natural language query: {user_message}")
-            schema = fetch_all_tables_and_columns() 
+            schema = fetch_all_tables_and_columns()
             if "error" in schema:
                  error_msg = "Could not fetch database schema to process your request."
                  if schema.get("error", {}).get("schema"):
