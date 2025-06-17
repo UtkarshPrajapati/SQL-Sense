@@ -4,6 +4,7 @@ import json
 from typing import List, Dict, Any, Tuple, Optional
 
 import mysql.connector
+import sqlparse
 from mysql.connector import FieldType
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -40,19 +41,25 @@ ENV_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 
 # Function to initialize Gemini API
 def initialize_gemini_api():
+    """
+    Initializes the Gemini API and validates the key by making a test call.
+    """
     global gemini_initialized
     try:
         if GEMINI_API_KEY:
             genai.configure(api_key=GEMINI_API_KEY)
+            # Test the key by making a lightweight, non-streaming call
+            model = genai.GenerativeModel(GEMINI_MODEL_NAME)
+            model.generate_content("ping", generation_config=genai.types.GenerationConfig(max_output_tokens=1))
             gemini_initialized = True
-            logger.info("Gemini API initialized successfully")
+            logger.info("Gemini API initialized and validated successfully")
             return True
         else:
             logger.warning("GEMINI_API_KEY not found. Some features will be limited.")
             gemini_initialized = False
             return False
     except Exception as e:
-        logger.error(f"Failed to initialize Gemini API: {e}")
+        logger.error(f"Failed to initialize or validate Gemini API key: {e}")
         gemini_initialized = False
         return False
 
@@ -300,7 +307,7 @@ def fetch_all_tables_and_columns() -> Dict[str, Dict[str, Any]]:
         if not fetch_result:
             logger.warning("No databases returned from SHOW DATABASES query.")
             return {}
-        databases = [row[0] for row in fetch_result if row[0] not in system_databases]
+        databases = [str(row[0]) for row in fetch_result if row[0] not in system_databases]
 
         if not databases:
             logger.warning("No user databases found.")
@@ -315,7 +322,7 @@ def fetch_all_tables_and_columns() -> Dict[str, Dict[str, Any]]:
                     logger.warning(f"No tables returned for database {db_name}.")
                     tables = []
                 else:
-                    tables = [row[0] for row in fetch_result]
+                    tables = [str(row[0]) for row in fetch_result]
 
                 for table_name in tables:
                     try:
@@ -325,15 +332,15 @@ def fetch_all_tables_and_columns() -> Dict[str, Dict[str, Any]]:
                             logger.warning(f"No columns returned for table {db_name}.{table_name}.")
                             columns = []
                         else:
-                            columns = [column[0] for column in fetch_result]
+                            columns = [str(column[0]) for column in fetch_result]
                         schema_info[db_name][table_name] = columns
                     except mysql.connector.Error as e:
                         logger.warning(f"Could not fetch columns for table {db_name}.{table_name}: {e}")
-                        schema_info[db_name][table_name] = [f"Error fetching columns: {e}"]
+                        schema_info[str(db_name)][str(table_name)] = [f"Error fetching columns: {e}"]
 
             except mysql.connector.Error as e:
                  logger.warning(f"Could not fetch tables for database {db_name}: {e}")
-                 schema_info[db_name] = {"error": [f"Error fetching tables: {e}"]} # Add an error placeholder
+                 schema_info[str(db_name)] = {"error": [f"Error fetching tables: {e}"]} # Add an error placeholder
 
         logger.info(f"Fetched schema for {len(databases)} databases.")
         return schema_info
@@ -393,12 +400,14 @@ Database Schema:
 User Question: "{user_query}"
 
 Instructions:
-- Analyze the user question and the schema carefully.
-- If querying a table, use the fully qualified name (e.g., `database_name`.`table_name`) unless the query context makes the database obvious or only one database exists. Prefer qualified names for clarity.
-- Generate only **one single** SQL statement. Do not include multiple statements separated by semicolons (`;`).
+- Your **only** task is to generate a single, executable MySQL query to answer the user's question based on the schema.
+- **Always** attempt to generate a query. Do not engage in conversation or ask for clarification.
+- If the user asks for a relationship between tables, generate a `JOIN` query. When using a `JOIN`, do not use `SELECT *`. Instead, select specific, useful columns from both tables to show the relationship.
+- If the user asks to create a table, make reasonable assumptions for column types (e.g., VARCHAR(255) for text, INT for IDs).
+- If querying a table, use the fully qualified name (e.g., `database_name`.`table_name`).
+- Generate only **one single** SQL statement. Do not include multiple statements or comments.
 - Do not include any explanations, introductory text, backticks (```sql), or markdown formatting.
-- Ensure the query is syntactically correct for MySQL.
-- If the question cannot be answered with the given schema or is ambiguous, respond with "Error: Cannot answer question with available schema."
+- If the user's request is impossible to answer with a SQL query (e.g., it's a greeting like "hello"), then and only then, respond with the exact text: "Error: This is a conversational query."
 
 SQL Query:"""
 
@@ -532,15 +541,53 @@ Explanation:"""
         logger.error(f"Error calling Gemini API for SQL error explanation: {e}", exc_info=True)
         return "Error generating AI explanation for the SQL error."
 
-# Helper function to identify modifying queries
 def is_modifying_query(sql_query: str) -> bool:
-    """Checks if the SQL query is likely to modify data or database structure."""
-    query_lower = sql_query.strip().lower()
-    modifying_keywords = [
-        "insert", "update", "delete", "create", "alter", "drop", "truncate",
-        "replace", "merge", "upsert"
-    ]
-    return any(keyword in query_lower for keyword in modifying_keywords)
+    """
+    Checks if the SQL query is likely to modify data, change structure, or cause a denial of service.
+    This uses sqlparse to analyze the query's structure, which is more robust than keyword matching.
+    It flags unknown statements as 'modifying' for safety unless known to be safe.
+    """
+    # List of statement types that are considered safe (read-only and non-intensive).
+    safe_statement_types = ["SELECT", "USE"]
+    # List of safe keywords that sqlparse might not recognize as a primary type
+    safe_unknown_keywords = ["SHOW", "DESCRIBE", "EXPLAIN"]
+
+    try:
+        parsed_statements = sqlparse.parse(sql_query)
+        if not parsed_statements:
+            logger.warning("Could not parse SQL query. Flagging as modifying for safety.")
+            return True  # Fail-closed: If parsing fails, assume it's unsafe.
+
+        for stmt in parsed_statements:
+            stmt_type = stmt.get_type()
+            stmt_upper = str(stmt).strip().upper()
+
+            # 1. Primary Check: If the statement type is not in our safe list, investigate further.
+            if stmt_type not in safe_statement_types:
+                # Handle UNKNOWN statements by checking for safe keywords at the beginning.
+                if stmt_type == 'UNKNOWN':
+                    if any(stmt_upper.startswith(keyword) for keyword in safe_unknown_keywords):
+                        continue  # It's a safe "UNKNOWN" type, check the next statement.
+                
+                # If it's not SELECT/USE and not a known-safe UNKNOWN, it's modifying.
+                logger.warning(f"Detected potentially modifying query. Statement type: '{stmt_type}'.")
+                return True
+
+            # 2. Secondary Check for dangerous clauses in SELECT statements
+            if stmt_type == "SELECT":
+                if "INTO OUTFILE" in stmt_upper or "INTO DUMPFILE" in stmt_upper:
+                    logger.warning(f"Detected potentially harmful 'SELECT...INTO' clause: {sql_query}")
+                    return True
+                if "WITH RECURSIVE" in stmt_upper:
+                    logger.warning(f"Detected potentially harmful recursive query: {sql_query}")
+                    return True
+
+        # If all statements are of a safe type and pass secondary checks, the query is not modifying.
+        return False
+
+    except Exception as e:
+        logger.error(f"Failed to parse SQL query for security check: {e}. Flagging as modifying for safety.")
+        return True # If any other exception occurs, fail-closed.
 
 # --- Pydantic Models ---
 class ChatRequest(BaseModel):
@@ -613,7 +660,7 @@ async def update_config(config_request: ConfigRequest):
             if gemini_api_key:
                 genai.configure(api_key=gemini_api_key)
                 test_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-                test_response = test_model.generate_content("Hello")
+                test_response = test_model.generate_content("ping")
                 if test_response.text:
                     gemini_status = "success"
                 else:
@@ -679,29 +726,36 @@ async def handle_chat(chat_request: ChatRequest):
 
             generated_sql = generate_sql_with_gemini(user_message, schema)
 
-            specific_sql_error = "Error: Cannot answer question with available schema."
-            if generated_sql == specific_sql_error:
-                logger.info(f"SQL generation returned '{specific_sql_error}'. Falling back to conversational response.")
-                conversational_response = get_conversational_response_with_gemini(user_message)
-                response_data = {"type": "info", "content": conversational_response}
+            # If the model determines the query is conversational, just show that.
+            # ROBUSTNESS FIX: Use lower(), strip(), and startswith() for comparison.
+            if generated_sql.strip().lower().startswith("error: this is a conversational query"):
+                logger.info("AI determined this is a conversational query. Replying with a generic message.")
+                # We can use the dedicated conversational model for a simple, polite reply.
+                response_data = {"type": "info", "content": get_conversational_response_with_gemini(user_message)}
                 return JSONResponse(content=jsonable_encoder(response_data))
-            elif not generated_sql:
-                response_data = {"type": "error", "content": "The AI model could not generate an SQL query. Please try rephrasing."}
-                return JSONResponse(content=response_data)
-            elif generated_sql.lower().startswith("error:"): 
-                 response_data = {"type": "error", "content": generated_sql}
+
+            if not generated_sql or generated_sql.lower().startswith("error:"):
+                 # Handle cases where SQL generation fails for other reasons
+                 error_message = generated_sql if generated_sql else "The AI model could not generate an SQL query. Please try rephrasing."
+                 response_data = {"type": "error", "content": error_message}
                  return JSONResponse(content=response_data)
+            
+            # Safety check: Use sqlparse to ensure only one statement is executed
+            parsed = sqlparse.parse(generated_sql)
+            if len(parsed) > 1:
+                logger.warning(f"AI returned multiple SQL statements. Executing only the first one: {str(parsed[0])}")
+                generated_sql = str(parsed[0]).strip()
+            
+            if is_modifying_query(generated_sql):
+                logger.info(f"Generated modifying SQL, requires confirmation: {generated_sql}")
+                response_data = {
+                    "type": "confirm_execution",
+                    "query": generated_sql,
+                    "message": "The AI generated the following query which may modify your data or database structure. Please review and confirm execution:"
+                }
+                return JSONResponse(content=jsonable_encoder(response_data))
             else:
-                if is_modifying_query(generated_sql):
-                    logger.info(f"Generated modifying SQL, requires confirmation: {generated_sql}")
-                    response_data = {
-                        "type": "confirm_execution",
-                        "query": generated_sql,
-                        "message": "The AI generated the following query which may modify your data or database structure. Please review and confirm execution:"
-                    }
-                    return JSONResponse(content=jsonable_encoder(response_data))
-                else:
-                    query_to_run = generated_sql
+                query_to_run = generated_sql
         
         if query_to_run:
             if query_to_run.strip().lower() == 'show tables;':
