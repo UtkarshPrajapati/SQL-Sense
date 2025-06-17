@@ -1,9 +1,8 @@
-Faker
+google-genai
 fastapi
-mysql-connector-python
-pydantic
 uvicorn
-google-generativeai
-Jinja2
 python-dotenv
+mysql-connector-python
 sqlparse
+Jinja2
+pydantic

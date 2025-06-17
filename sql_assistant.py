@@ -12,7 +12,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
-import google.generativeai as genai
+# import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 import functools
 
@@ -35,6 +36,8 @@ GEMINI_MODEL_NAME = "gemini-2.0-flash"
 
 # Variable to track if Gemini API is initialized
 gemini_initialized = False
+# Global Gemini Client
+gemini_client: Optional[genai.client.Client] = None
 
 # Path to .env file
 ENV_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -44,23 +47,31 @@ def initialize_gemini_api():
     """
     Initializes the Gemini API and validates the key by making a test call.
     """
-    global gemini_initialized
+    global gemini_initialized, gemini_client
     try:
         if GEMINI_API_KEY:
-            genai.configure(api_key=GEMINI_API_KEY)
+            # The new SDK uses a client object for all interactions.
+            gemini_client = genai.Client(api_key=GEMINI_API_KEY)
             # Test the key by making a lightweight, non-streaming call
-            model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-            model.generate_content("ping", generation_config=genai.types.GenerationConfig(max_output_tokens=1))
+            gemini_client.models.generate_content(
+                model=GEMINI_MODEL_NAME,
+                contents="ping",
+                config={
+                    "max_output_tokens": 1
+                }
+            )
             gemini_initialized = True
             logger.info("Gemini API initialized and validated successfully")
             return True
         else:
             logger.warning("GEMINI_API_KEY not found. Some features will be limited.")
             gemini_initialized = False
+            gemini_client = None
             return False
     except Exception as e:
         logger.error(f"Failed to initialize or validate Gemini API key: {e}")
         gemini_initialized = False
+        gemini_client = None
         return False
 
 # Initialize Gemini API on startup
@@ -307,7 +318,7 @@ def fetch_all_tables_and_columns() -> Dict[str, Dict[str, Any]]:
         if not fetch_result:
             logger.warning("No databases returned from SHOW DATABASES query.")
             return {}
-        databases = [str(row[0]) for row in fetch_result if row[0] not in system_databases]
+        databases = [str(row[0]) for row in fetch_result if row[0] not in system_databases] # type: ignore
 
         if not databases:
             logger.warning("No user databases found.")
@@ -322,7 +333,7 @@ def fetch_all_tables_and_columns() -> Dict[str, Dict[str, Any]]:
                     logger.warning(f"No tables returned for database {db_name}.")
                     tables = []
                 else:
-                    tables = [str(row[0]) for row in fetch_result]
+                    tables = [str(row[0]) for row in fetch_result] # type: ignore
 
                 for table_name in tables:
                     try:
@@ -332,7 +343,7 @@ def fetch_all_tables_and_columns() -> Dict[str, Dict[str, Any]]:
                             logger.warning(f"No columns returned for table {db_name}.{table_name}.")
                             columns = []
                         else:
-                            columns = [str(column[0]) for column in fetch_result]
+                            columns = [str(column[0]) for column in fetch_result] # type: ignore
                         schema_info[db_name][table_name] = columns
                     except mysql.connector.Error as e:
                         logger.warning(f"Could not fetch columns for table {db_name}.{table_name}: {e}")
@@ -412,8 +423,18 @@ Instructions:
 SQL Query:"""
 
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-        response = model.generate_content(prompt)
+        # The new SDK uses client.models.generate_content
+        if not gemini_client:
+            return "Error: Gemini client not initialized."
+            
+        response = gemini_client.models.generate_content(
+            model=GEMINI_MODEL_NAME,
+            contents=prompt
+        )
+
+        if not hasattr(response, 'text') or not response.text:
+            logger.warning(f"Gemini returned no text for SQL generation from user query: {user_query}")
+            return "Error: The AI model did not return a response."
 
         sql_query = response.text.strip() # Clean up potential markdown formatting
         if sql_query.startswith("```sql"):
@@ -470,10 +491,15 @@ Instructions:
 Analysis:"""
 
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-        response = model.generate_content(prompt)
+        if not gemini_client:
+            return "Error: Gemini client not initialized."
+
+        response = gemini_client.models.generate_content(
+            model=GEMINI_MODEL_NAME,
+            contents=prompt
+        )
         logger.info("Gemini generated insights.")
-        return response.text
+        return response.text if response.text else "No insights could be generated from the data."
     except Exception as e:
         logger.error(f"Error calling Gemini API for insights: {e}", exc_info=True)
         return "Error generating insights from the AI model."
@@ -489,13 +515,18 @@ User Message: "{user_message}"
 Assistant Response:"""
 
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-        response = model.generate_content(prompt)
+        if not gemini_client:
+            return "Error: Gemini client not initialized."
+            
+        response = gemini_client.models.generate_content(
+            model=GEMINI_MODEL_NAME,
+            contents=prompt
+        )
         if response.prompt_feedback and response.prompt_feedback.block_reason:
              logger.warning(f"Conversational response blocked. Reason: {response.prompt_feedback.block_reason}")
              return "I cannot provide a response to that topic."
 
-        return response.text.strip()
+        return response.text.strip() if response.text else "I am unable to provide a response at this time."
 
     except Exception as e:
         logger.error(f"Error calling Gemini API for conversational response: {e}", exc_info=True)
@@ -530,13 +561,18 @@ Instructions:
 Explanation:"""
 
     try:
-        model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-        response = model.generate_content(prompt)
+        if not gemini_client:
+            return "Error: Gemini client not initialized."
+            
+        response = gemini_client.models.generate_content(
+            model=GEMINI_MODEL_NAME,
+            contents=prompt
+        )
         if response.prompt_feedback and response.prompt_feedback.block_reason:
             logger.warning(f"Error explanation response blocked. Reason: {response.prompt_feedback.block_reason}")
             return "AI explanation could not be generated for this error due to content restrictions."
         logger.info("Gemini generated SQL error explanation.")
-        return response.text.strip()
+        return response.text.strip() if response.text else "An AI explanation could not be generated for this error."
     except Exception as e:
         logger.error(f"Error calling Gemini API for SQL error explanation: {e}", exc_info=True)
         return "Error generating AI explanation for the SQL error."
@@ -658,9 +694,15 @@ async def update_config(config_request: ConfigRequest):
         original_key = GEMINI_API_KEY
         try: # Test Gemini API key
             if gemini_api_key:
-                genai.configure(api_key=gemini_api_key)
-                test_model = genai.GenerativeModel(GEMINI_MODEL_NAME)
-                test_response = test_model.generate_content("ping")
+                # Use the new SDK's client for testing
+                test_client = genai.Client(api_key=gemini_api_key)
+                test_response = test_client.models.generate_content(
+                    model=GEMINI_MODEL_NAME,
+                    contents="ping",
+                    config={
+                        "max_output_tokens": 1
+                    }
+                )
                 if test_response.text:
                     gemini_status = "success"
                 else:
@@ -728,7 +770,7 @@ async def handle_chat(chat_request: ChatRequest):
 
             # If the model determines the query is conversational, just show that.
             # ROBUSTNESS FIX: Use lower(), strip(), and startswith() for comparison.
-            if generated_sql.strip().lower().startswith("error: this is a conversational query"):
+            if generated_sql and generated_sql.strip().lower().startswith("error: this is a conversational query"):
                 logger.info("AI determined this is a conversational query. Replying with a generic message.")
                 # We can use the dedicated conversational model for a simple, polite reply.
                 response_data = {"type": "info", "content": get_conversational_response_with_gemini(user_message)}
