@@ -32,7 +32,7 @@ MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "SQLLLM")
 
 # Gemini API Configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL_NAME = "gemini-2.0-flash"
+GEMINI_MODEL_NAME = "gemini-2.5-flash-lite-preview-06-17"
 
 # Variable to track if Gemini API is initialized
 gemini_initialized = False
@@ -533,11 +533,35 @@ Assistant Response:"""
         return "I'm having trouble responding right now. Please try again later."
 
 @ensure_gemini_initialized
-def get_error_explanation_with_gemini(original_user_query: Optional[str], failed_sql_query: str, error_message: str) -> str:
+def get_error_explanation_with_gemini(original_user_query: Optional[str], failed_sql_query: str, error_message: str, schema: Optional[Dict[str, Any]] = None) -> str:
     """Generates a user-friendly explanation for an SQL error using Gemini."""
     prompt_context = f"User's original request (if available): \"{original_user_query}\"\n"
     if not original_user_query:
         prompt_context = "The user was attempting to execute a specific SQL query.\n"
+
+    schema_context = ""
+    if schema:
+        schema_string = ""
+        if not schema or "error" in schema:
+            schema_string = "Could not fetch schema."
+        else:
+            for db_name, tables in schema.items():
+                schema_string += f"\nDatabase: `{db_name}`\n"
+                if isinstance(tables, dict):
+                    if not tables:
+                        schema_string += "  (No tables found or accessible)\n"
+                    elif "error" in tables:
+                        schema_string += f"  Error fetching tables: {tables['error']}\n"
+                    else:
+                        for table_name, columns in tables.items():
+                            col_string = ', '.join([f"`{c}`" for c in columns])
+                            schema_string += f"  - Table: `{table_name}`: Columns: {col_string}\n"
+                else:
+                    schema_string += f"  Error retrieving table details for this database.\n"
+        schema_context = f"""
+For context, here is the database schema the query was run against:
+{schema_string}
+"""
 
     prompt = f"""You are an expert SQL troubleshooting assistant.
 
@@ -550,8 +574,10 @@ The database returned this error message:
 {error_message}
 
 {prompt_context}
+{schema_context}
 Instructions:
 - Explain the error message in simple, easy-to-understand terms in 5-10 sentences maximum.
+- **Use the provided database schema to give a specific, actionable suggestion.** For example, if a column name is wrong, suggest the correct one from the schema.
 - What are the common reasons for this specific error?
 - What should the user check or try to resolve this issue?
 - If the error indicates the table is not insertable (e.g., it's a view), explain what that means.
@@ -739,7 +765,7 @@ async def handle_chat(chat_request: ChatRequest):
     user_message = chat_request.message.strip()
     response_data: Dict[str, Any] = {"type": "error", "content": "An unexpected error occurred."}
     query_to_run = None 
-    schema = None 
+    schema: Optional[Dict[str, Any]] = None 
 
     try:
         if user_message.lower().startswith("/run "):
@@ -827,17 +853,21 @@ async def handle_chat(chat_request: ChatRequest):
             results, columns, col_types, status, db_error = execute_sql_query(query_to_run)
             
             if status == 3: # SQL Error
+                 if schema is None:
+                     logger.info("Fetching schema for error context.")
+                     schema = fetch_all_tables_and_columns()
+
                  error_content = f"SQL Error: {db_error or 'Query execution failed.'}"
                  ai_explanation = ""
                  if 'generated_sql' in locals() and generated_sql == query_to_run:
                      error_content = f"Generated SQL failed to execute:\n```sql\n{generated_sql}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
-                     ai_explanation = get_error_explanation_with_gemini(original_user_query=user_message, failed_sql_query=generated_sql, error_message=str(db_error))
+                     ai_explanation = get_error_explanation_with_gemini(original_user_query=user_message, failed_sql_query=generated_sql, error_message=str(db_error), schema=schema)
                  elif 'generated_sql' in locals() and query_to_run.endswith(generated_sql): # Check if it's the modified version (e.g. with USE prepended)
                      error_content = f"Generated SQL (modified) failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
-                     ai_explanation = get_error_explanation_with_gemini(original_user_query=user_message, failed_sql_query=query_to_run, error_message=str(db_error))
+                     ai_explanation = get_error_explanation_with_gemini(original_user_query=user_message, failed_sql_query=query_to_run, error_message=str(db_error), schema=schema)
                  else: # For /run commands 
                      error_content = f"Query failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
-                     ai_explanation = get_error_explanation_with_gemini(original_user_query=None, failed_sql_query=query_to_run, error_message=str(db_error))
+                     ai_explanation = get_error_explanation_with_gemini(original_user_query=None, failed_sql_query=query_to_run, error_message=str(db_error), schema=schema)
                  response_data = {"type": "error", "content": error_content, "ai_explanation": ai_explanation}
 
             elif status == 2: # DML/DDL Success
@@ -884,7 +914,8 @@ async def handle_confirmed_sql(request: ConfirmedExecutionRequest):
 
         if status == 3: # SQL Error
             error_content = f"Confirmed query failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
-            ai_explanation = get_error_explanation_with_gemini(original_user_query=f"User confirmed execution of the following SQL", failed_sql_query=query_to_run, error_message=str(db_error))
+            schema = fetch_all_tables_and_columns()
+            ai_explanation = get_error_explanation_with_gemini(original_user_query=f"User confirmed execution of the following SQL", failed_sql_query=query_to_run, error_message=str(db_error), schema=schema)
             response_data = {"type": "error", "content": error_content, "ai_explanation": ai_explanation}
         elif status == 2: # DML/DDL Success
             response_data = {"type": "info", "content": f"Query executed successfully:\n\n```sql\n{query_to_run}\n```"}
