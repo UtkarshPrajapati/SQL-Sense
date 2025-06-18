@@ -663,6 +663,13 @@ class ConfigRequest(BaseModel):
     gemini_api_key: str
 
 
+class PublicConfig(BaseModel):
+    mysql_host: str
+    mysql_user: str
+    mysql_password_set: bool
+    gemini_api_key_set: bool
+
+
 class ConfirmedExecutionRequest(BaseModel):
     query: str
 
@@ -677,6 +684,16 @@ templates = Jinja2Templates(directory=".") # Expect index.html in the root direc
 async def read_root(request: Request):
     """Serves the main HTML page."""
     return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/config_status", response_model=PublicConfig)
+async def get_config_status():
+    """API endpoint to fetch the current, non-sensitive configuration status."""
+    return PublicConfig(
+        mysql_host=MYSQL_HOST,
+        mysql_user=MYSQL_USER,
+        mysql_password_set=bool(MYSQL_PASSWORD), # True if password is not an empty string
+        gemini_api_key_set=bool(GEMINI_API_KEY)  # True if key is not an empty string
+    )
 
 @app.get("/schema", response_class=JSONResponse)
 async def get_schema():
