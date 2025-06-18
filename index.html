@@ -141,6 +141,80 @@
             box-shadow: none; /* Remove Tailwind focus shadow */
         }
         
+        /* Styles for floating label inputs in config */
+        .input-group {
+            position: relative;
+            margin-bottom: 1.5rem; /* ~24px, provides more space */
+        }
+        .input-group .icon {
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            transform: translateY(-50%);
+            color: var(--md-text-secondary-on-background);
+            pointer-events: none;
+            transition: color 0.2s ease;
+        }
+        /* When focused, also make the icon colored */
+        .input-group input:focus ~ .icon {
+            color: var(--md-primary-color);
+        }
+        .input-group input {
+            width: 100%;
+            padding: 10px 40px 10px 40px; /* Top, Right, Bottom, Left */
+            background-color: transparent;
+            border: none;
+            border-bottom: 1px solid var(--md-border-color);
+            border-radius: 0;
+            font-size: 0.9rem;
+            color: var(--md-text-primary-on-background);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .input-group input:focus {
+            outline: none;
+            border-bottom-width: 2px;
+            border-bottom-color: var(--md-primary-color);
+            box-shadow: none; /* Override Tailwind focus shadow */
+        }
+        .input-group .floating-label {
+            position: absolute;
+            top: 10px;
+            left: 40px; /* Position next to icon */
+            font-size: 0.9rem;
+            color: var(--md-text-secondary-on-background);
+            pointer-events: none;
+            transition: all 0.2s ease-in-out;
+            background-color: var(--md-surface-color); /* To cover the line when floated */
+        }
+        /* State when input has content or is focused */
+        .input-group input:not(:placeholder-shown) + .floating-label,
+        .input-group input:focus + .floating-label {
+            top: -8px;
+            left: 10px;
+            font-size: 0.75rem;
+            color: var(--md-primary-color);
+            padding: 0 4px;
+        }
+        .input-group .toggle-password {
+            position: absolute;
+            top: 50%;
+            right: 5px;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--md-text-secondary-on-background);
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .input-group .toggle-password:hover {
+            background-color: rgba(0,0,0,0.08);
+            color: var(--md-text-primary-on-background);
+        }
+
         /* Settings icon rotation animation - unchanged */
         @keyframes rotate-cw {
             0% { transform: rotate(0deg); }
@@ -535,25 +609,35 @@
                 </svg>
             </button>
         </div>
-        <form id="config-form" class="space-y-3">
-            <div>
-                <label for="mysql-host" class="block text-sm font-medium text-gray-700">MySQL Host</label>
-                <input type="text" id="mysql-host" name="mysql-host" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="localhost">
+        <form id="config-form" class="space-y-4 pt-2">
+            <div class="input-group">
+                <i data-lucide="server" class="icon h-4 w-4"></i>
+                <input type="text" id="mysql-host" name="mysql-host" placeholder=" " class="bg-transparent">
+                <label for="mysql-host" class="floating-label">MySQL Host</label>
             </div>
-            <div>
-                <label for="mysql-user" class="block text-sm font-medium text-gray-700">MySQL User</label>
-                <input type="text" id="mysql-user" name="mysql-user" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="root">
+            <div class="input-group">
+                <i data-lucide="user" class="icon h-4 w-4"></i>
+                <input type="text" id="mysql-user" name="mysql-user" placeholder=" " class="bg-transparent" autocomplete="new-password">
+                <label for="mysql-user" class="floating-label">MySQL User</label>
             </div>
-            <div>
-                <label for="mysql-password" class="block text-sm font-medium text-gray-700">MySQL Password</label>
-                <input type="password" id="mysql-password" name="mysql-password" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="root">
+            <div class="input-group">
+                <i data-lucide="key-round" class="icon h-4 w-4"></i>
+                <input type="password" id="mysql-password" name="mysql-password" placeholder=" " class="bg-transparent" autocomplete="new-password">
+                <label for="mysql-password" class="floating-label">MySQL Password</label>
+                <button type="button" class="toggle-password" data-target="mysql-password">
+                    <i data-lucide="eye" class="h-4 w-4"></i>
+                </button>
             </div>
-            <div>
-                <label for="gemini-api-key" class="block text-sm font-medium text-gray-700">Gemini API Key</label>
-                <input type="password" id="gemini-api-key" name="gemini-api-key" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="API Key">
+            <div class="input-group">
+                <i data-lucide="key-round" class="icon h-4 w-4"></i>
+                <input type="password" id="gemini-api-key" name="gemini-api-key" placeholder=" " class="bg-transparent">
+                <label for="gemini-api-key" class="floating-label">Gemini API Key</label>
+                <button type="button" class="toggle-password" data-target="gemini-api-key">
+                    <i data-lucide="eye" class="h-4 w-4"></i>
+                </button>
             </div>
             <div class="pt-2">
-                <button type="submit" id="config-save-btn" class="w-full inline-flex justify-center items-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <button type="button" id="config-save-btn" class="w-full inline-flex justify-center items-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 button-primary">
                     <span id="config-save-text">Save Configuration</span>
                     <div id="config-save-spinner" class="hidden ml-2 flex items-center">
                         <!-- SVG Spinner will be inserted here by JS -->
@@ -1378,8 +1462,8 @@
             configPopup.classList.remove('visible');
         });
         
-        configForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
+        // MODIFIED: Changed from 'submit' event on form to 'click' event on button
+        document.getElementById('config-save-btn').addEventListener('click', async () => {
             const config = {
                 mysqlHost: document.getElementById('mysql-host').value || "localhost",
                 mysqlUser: document.getElementById('mysql-user').value || "root",
@@ -1474,6 +1558,30 @@
                     headerDbIcon.classList.remove('icon-rotate-onload');
                 }, { once: true });
             }
+        });
+
+        // --- Event Listeners ---
+
+        // ADDED: Event listener for password visibility toggles
+        document.querySelectorAll('.toggle-password').forEach(button => {
+            button.addEventListener('click', function() {
+                const targetInputId = this.dataset.target;
+                const targetInput = document.getElementById(targetInputId);
+                
+                if (targetInput) {
+                    if (targetInput.type === 'password') {
+                        targetInput.type = 'text';
+                        // Replace the icon inside the button
+                        this.innerHTML = '<i data-lucide="eye-off" class="h-4 w-4"></i>';
+                    } else {
+                        targetInput.type = 'password';
+                        // Replace it back
+                        this.innerHTML = '<i data-lucide="eye" class="h-4 w-4"></i>';
+                    }
+                    // Tell Lucide to create the new icon
+                    lucide.createIcons();
+                }
+            });
         });
 
     </script>
