@@ -415,6 +415,22 @@
             to   { opacity: 1; transform: scale(1) rotate(0deg); }
         }
 
+        /* ADDED: Keyframes for icon/spinner fade transitions */
+        @keyframes fadeOut {
+            from { opacity: 1; transform: scale(1); }
+            to   { opacity: 0; transform: scale(0.8); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        .icon-fade-out {
+            animation: fadeOut 0.15s ease-out forwards;
+        }
+        .icon-fade-in {
+            animation: fadeIn 0.15s ease-out forwards;
+        }
+
         .schema-icon-animate-out {
             animation: iconAnimateOut 0.1s ease-in-out forwards;
         }
@@ -673,9 +689,9 @@
                         </span>
                         <input type="text" id="message-input" placeholder="Type your message or /run command..." class="flex-1 px-4 py-2 focus:outline-none bg-transparent h-full text-sm" required>
                     </div>
-                    <button type="submit" id="send-button" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-full shadow transition duration-150 ease-in-out flex items-center justify-center h-10 w-10">
-                        <i data-lucide="arrow-up" id="send-icon" class="h-5 w-5"></i>
-                        <div id="send-spinner" class="hidden">
+                    <button type="submit" id="send-button" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-full shadow transition duration-150 ease-in-out flex items-center justify-center h-10 w-10 relative">
+                        <i data-lucide="arrow-up" id="send-icon" class="h-5 w-5 absolute"></i>
+                        <div id="send-spinner" class="hidden absolute">
                             <!-- SVG Spinner will be inserted here by JS -->
                         </div>
                     </button>
@@ -833,23 +849,48 @@
         }
 
         function setLoadingState(isLoading) {
-            // messageInput, sendButton, sendSpinner are global consts pointing to correct elements.
-
-            // Dynamically find the visual SVG arrow icon within the sendButton
-            const visualArrowIcon = sendButton.querySelector('svg.lucide-arrow-up'); 
+            const sendIcon = document.getElementById('send-icon');
+            const sendSpinner = document.getElementById('send-spinner');
+            const animationDuration = 150; // ms, matches the CSS animation time
 
             if (isLoading) {
                 messageInput.disabled = true;
                 sendButton.disabled = true;
-                if (visualArrowIcon) visualArrowIcon.classList.add('hidden'); // Hide the SVG arrow icon
-                sendSpinner.classList.remove('hidden');                      // Show the spinner div
-                sendSpinner.innerHTML = createSpinnerSvg(); // Use helper
+                
+                sendIcon.classList.add('icon-fade-out');
+                
+                setTimeout(() => {
+                    sendIcon.classList.add('hidden');
+                    sendIcon.classList.remove('icon-fade-out');
+
+                    sendSpinner.classList.remove('hidden');
+                    sendSpinner.classList.add('icon-fade-in');
+                    sendSpinner.innerHTML = createSpinnerSvg();
+                }, animationDuration);
+
             } else {
                 messageInput.disabled = false;
                 sendButton.disabled = false;
-                if (visualArrowIcon) visualArrowIcon.classList.remove('hidden'); // Show the SVG arrow icon
-                sendSpinner.classList.add('hidden');                         // Hide the spinner div
-                messageInput.focus(); // Refocus input after response
+                
+                sendSpinner.classList.add('icon-fade-out');
+                
+                setTimeout(() => {
+                    sendSpinner.classList.add('hidden');
+                    sendSpinner.classList.remove('icon-fade-out');
+                    sendSpinner.innerHTML = '';
+
+                    sendIcon.classList.remove('hidden');
+                    sendIcon.classList.remove('icon-fade-out'); // Ensure fade-out is not lingering
+                    sendIcon.classList.add('icon-fade-in');
+                    
+                    // Clean up the fade-in class after it has run
+                    setTimeout(() => {
+                        sendIcon.classList.remove('icon-fade-in');
+                    }, animationDuration);
+
+                }, animationDuration);
+
+                messageInput.focus();
             }
         }
 
