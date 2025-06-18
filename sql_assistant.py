@@ -7,7 +7,7 @@ import mysql.connector
 import sqlparse
 from mysql.connector import FieldType
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.encoders import jsonable_encoder
@@ -670,6 +670,7 @@ class ConfirmedExecutionRequest(BaseModel):
 # --- FastAPI Application ---
 
 app = FastAPI(title="SQL Assistant with Gemini")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory=".") # Expect index.html in the root directory
 
 @app.get("/", response_class=HTMLResponse)
