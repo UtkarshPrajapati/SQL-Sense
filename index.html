@@ -593,6 +593,28 @@
             max-height: 0; /* Initially collapsed */
             transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1); /* Increased from 0.3s */
         }
+
+        /* ADDED: Styles for header buttons to give them elevation */
+        #config-toggle-btn, #schema-toggle-btn {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #config-toggle-btn:hover, #schema-toggle-btn:hover {
+            --tw-shadow: var(--md-elevation-2);
+            --tw-shadow-colored: var(--md-elevation-2);
+            transform: translateY(-1px);
+        }
+        #config-toggle-btn:active, #schema-toggle-btn:active {
+            --tw-shadow: var(--md-elevation-1);
+            --tw-shadow-colored: var(--md-elevation-1);
+            transform: translateY(0px);
+            transition-duration: 0.1s;
+        }
+        
+        /* ADDED: Elevation for the main send button */
+        #send-button:hover {
+            box-shadow: var(--md-elevation-2);
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans flex flex-col h-screen">
@@ -603,10 +625,10 @@
             DataFlow
         </a>
         <div class="flex items-center space-x-3">
-            <button id="config-toggle-btn" class="bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg shadow text-sm transition duration-150 ease-in-out flex items-center">
+            <button id="config-toggle-btn" class="bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg text-sm flex items-center shadow">
                 <i id="settings-icon" data-lucide="settings" class="mr-1 h-4 w-4 text-indigo-600"></i> Config
             </button>
-            <button id="schema-toggle-btn" class="bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg shadow text-sm transition duration-150 ease-in-out flex items-center">
+            <button id="schema-toggle-btn" class="bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg text-sm flex items-center shadow">
                 <span id="schema-db-icon" class="mr-1"><i data-lucide="database" class="h-4 w-4 text-indigo-600"></i></span>
                 <span id="schema-up-icon" class="mr-1 hidden"><i data-lucide="chevron-right" class="h-4 w-4 text-indigo-600"></i></span>
                 <span id="schema-text">View Schema</span>
