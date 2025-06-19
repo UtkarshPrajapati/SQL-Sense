@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
     <style>
         :root {
             --md-primary-color: #3f51b5; /* Indigo */
@@ -784,9 +785,11 @@
         }
 
         function renderMarkdown(text) {
-            // Basic sanitization (consider a more robust library like DOMPurify if needed)
-            const sanitizedHtml = marked.parse(text);
-            return sanitizedHtml;
+            // Convert Markdown to HTML using marked.js
+            const dirtyHtml = marked.parse(text);
+            // Sanitize the HTML using DOMPurify to prevent XSS attacks
+            const cleanHtml = DOMPurify.sanitize(dirtyHtml);
+            return cleanHtml;
         }
 
         // ADDED: Helper function to create spinner SVG
