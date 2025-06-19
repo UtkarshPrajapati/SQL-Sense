@@ -870,6 +870,9 @@
             });
 
             tableHtml += '</tbody></table></div>';
+            if (results.length === 100) {
+                tableHtml += '<p class="text-xs text-gray-500 italic mt-1">Displaying up to 100 rows. The actual result set may be larger.</p>';
+            }
             return tableHtml;
         }
 
