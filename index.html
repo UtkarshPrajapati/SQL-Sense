@@ -1396,41 +1396,35 @@
             runCommandTag.classList.add('hidden');
             messageInput.placeholder = originalPlaceholder;
             isRunCommandActive = false;
-            messageInput.value = '';
+            // DO NOT clear the input value here, allowing the query to be preserved.
             messageInput.focus();
         }
 
         function showSlashCommandPopup() {
             const inputValue = messageInput.value;
-            // console.log("[Debug] inputValue:", inputValue);
-
-            const startsWithSlash = inputValue.startsWith('/');
-            // console.log("[Debug] startsWithSlash:", startsWithSlash);
-
-            const isLengthOne = inputValue.length === 1;
-            // console.log("[Debug] isLengthOne (inputValue.length === 1):", isLengthOne);
-
-            let subStringLower = "";
-            if (inputValue.length > 1) {
-                subStringLower = inputValue.substring(1).toLowerCase();
+            // Only show the popup if the input *starts with* a slash,
+            // but don't hide it just because there's text after it.
+            if (!inputValue.startsWith('/')) {
+                hideSlashCommandPopup();
+                return;
             }
-            // console.log("[Debug] subStringLower (inputValue.substring(1).toLowerCase()):", subStringLower);
 
-            const runStartsWithSub = "run".startsWith(subStringLower); // Corrected: removed leading slash from "run"
-            // console.log("[Debug] \"run\".startsWith(subStringLower):", runStartsWithSub);
+            // Filter commands based on what's typed after the slash.
+            const commandFragment = inputValue.substring(1).toLowerCase();
+            const potentialCommands = ['run'];
+            const matchingCommands = potentialCommands.filter(cmd => cmd.startsWith(commandFragment));
 
-            const shouldShowPopup = startsWithSlash && (isLengthOne || (inputValue.length > 1 && runStartsWithSub));
-            // console.log("[Debug] Overall condition (startsWithSlash && (isLengthOne || (inputValue.length > 1 && runStartsWithSub))):", shouldShowPopup);
-
-            if (shouldShowPopup) {
+            if (matchingCommands.length > 0) {
                 slashCommandPopup.innerHTML = ''; // Clear previous suggestions
-                const suggestionDiv = document.createElement('div');
-                suggestionDiv.textContent = '/run';
-                suggestionDiv.dataset.command = '/run';
-                suggestionDiv.addEventListener('click', () => {
-                    showRunCommandTag();
+                matchingCommands.forEach(cmd => {
+                    const suggestionDiv = document.createElement('div');
+                    suggestionDiv.textContent = `/${cmd}`;
+                    suggestionDiv.dataset.command = `/${cmd}`;
+                    suggestionDiv.addEventListener('click', () => {
+                        showRunCommandTag();
+                    });
+                    slashCommandPopup.appendChild(suggestionDiv);
                 });
-                slashCommandPopup.appendChild(suggestionDiv);
                 slashCommandPopup.classList.remove('hidden');
             } else {
                 hideSlashCommandPopup();
@@ -1584,14 +1578,12 @@
                 return;
             }
 
-            // MODIFIED: Check for "/run " anywhere, and handle it immediately.
-            if (inputValue.trim() === '/run' || inputValue.startsWith('/run ')) {
-                // If the user types "/run" and a space, or just "/run", activate the tag.
-                // We'll take the text that comes after "/run " and put it in the input.
+            // If the user types "/run" and a space, or just "/run", activate the tag.
+            if (inputValue.startsWith('/run ')) {
                 const restOfQuery = inputValue.substring(5); // Get text after "/run "
                 showRunCommandTag();
                 messageInput.value = restOfQuery; // Put the rest of the query back
-                return; // Stop further processing for this input event
+                return; 
             }
             
             if (inputValue.startsWith('/')) {
