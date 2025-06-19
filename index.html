@@ -1584,11 +1584,18 @@
                 return;
             }
 
+            // MODIFIED: Check for "/run " anywhere, and handle it immediately.
+            if (inputValue.trim() === '/run' || inputValue.startsWith('/run ')) {
+                // If the user types "/run" and a space, or just "/run", activate the tag.
+                // We'll take the text that comes after "/run " and put it in the input.
+                const restOfQuery = inputValue.substring(5); // Get text after "/run "
+                showRunCommandTag();
+                messageInput.value = restOfQuery; // Put the rest of the query back
+                return; // Stop further processing for this input event
+            }
+            
             if (inputValue.startsWith('/')) {
                 showSlashCommandPopup();
-                if (inputValue === "/run ") {
-                    showRunCommandTag();
-                }
             } else {
                 hideSlashCommandPopup();
             }
