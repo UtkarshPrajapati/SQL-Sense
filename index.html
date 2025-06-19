@@ -1611,16 +1611,11 @@
                 const dbContentWrapper = dbItem.nextElementSibling;
                 if (dbContentWrapper && dbContentWrapper.classList.contains('database-content-wrapper')) {
                     if (dbContentWrapper.style.maxHeight && dbContentWrapper.style.maxHeight !== '0px') {
-                        // Collapse: Prime with scrollHeight for smoother animation start
-                        dbContentWrapper.style.maxHeight = dbContentWrapper.scrollHeight + 'px';
-                        // Force reflow to apply the above height before transitioning to 0
-                        dbContentWrapper.offsetHeight; 
-                        requestAnimationFrame(() => {
-                            dbContentWrapper.style.maxHeight = '0px';
-                        });
+                        // Collapse the database content
+                        dbContentWrapper.style.maxHeight = '0px';
                     } else {
-                        // Expand
-                        dbContentWrapper.style.maxHeight = '5000px'; // Expand to a large enough value
+                        // Expand the database content to its own scroll height
+                        dbContentWrapper.style.maxHeight = dbContentWrapper.scrollHeight + 'px';
                     }
                 }
             } else {
@@ -1629,10 +1624,24 @@
                     tableItem.classList.toggle('expanded');
                     const columnsList = tableItem.nextElementSibling;
                     if (columnsList && columnsList.classList.contains('schema-columns-list')) {
+                        const parentWrapper = tableItem.closest('.database-content-wrapper');
+
                         if (columnsList.style.maxHeight && columnsList.style.maxHeight !== '0px') {
-                            columnsList.style.maxHeight = '0px'; // Collapse
+                            // Collapse the column list
+                            const listHeight = columnsList.scrollHeight;
+                            columnsList.style.maxHeight = '0px';
+                            // Adjust parent wrapper's height
+                            if (parentWrapper && parentWrapper.style.maxHeight !== '0px') {
+                                parentWrapper.style.maxHeight = (parseInt(parentWrapper.style.maxHeight) - listHeight) + 'px';
+                            }
                         } else {
-                            columnsList.style.maxHeight = columnsList.scrollHeight + 'px'; // Expand
+                            // Expand the column list
+                            const listHeight = columnsList.scrollHeight;
+                            columnsList.style.maxHeight = listHeight + 'px';
+                            // Adjust parent wrapper's height
+                            if (parentWrapper && parentWrapper.style.maxHeight !== '0px') {
+                                parentWrapper.style.maxHeight = (parseInt(parentWrapper.style.maxHeight) + listHeight) + 'px';
+                            }
                         }
                     }
                 }
