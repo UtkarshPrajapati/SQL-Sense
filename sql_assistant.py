@@ -603,53 +603,71 @@ Explanation:"""
         logger.error(f"Error calling Gemini API for SQL error explanation: {e}", exc_info=True)
         return "Error generating AI explanation for the SQL error."
 
-def is_modifying_query(sql_query: str) -> bool:
+def get_query_risk_level(sql_query: str) -> int:
     """
-    Checks if the SQL query is likely to modify data, change structure, or cause a denial of service.
-    This uses sqlparse to analyze the query's structure, which is more robust than keyword matching.
-    It flags unknown statements as 'modifying' for safety unless known to be safe.
+    Classifies a query into a risk level based on its type. This is a primary safeguard
+    to prevent accidental or malicious database structure changes.
+
+    Returns:
+        0: Read-only (safe to execute immediately).
+        1: Data-modifying (requires user confirmation).
+        2: Structure-modifying or potentially unsafe (should be blocked).
     """
-    # List of statement types that are considered safe (read-only and non-intensive).
-    safe_statement_types = ["SELECT", "USE"]
-    # List of safe keywords that sqlparse might not recognize as a primary type
-    safe_unknown_keywords = ["SHOW", "DESCRIBE", "EXPLAIN"]
+    # Whitelists for different statement types identified by sqlparse
+    read_only_types = ["SELECT", "USE"]
+    data_modifying_types = ["INSERT", "UPDATE", "DELETE", "CREATE"]
+    # Any DDL or DCL is considered structure-modifying and high-risk
+    structure_modifying_types = ["ALTER", "DROP", "TRUNCATE", "GRANT", "REVOKE", "RENAME"]
+
+    # Quick check for common safe commands that sqlparse might label as 'UNKNOWN'
+    query_upper = sql_query.strip().upper()
+    if any(query_upper.startswith(kw) for kw in ["SHOW", "DESCRIBE", "EXPLAIN"]):
+        return 0
 
     try:
         parsed_statements = sqlparse.parse(sql_query)
         if not parsed_statements:
-            logger.warning("Could not parse SQL query. Flagging as modifying for safety.")
-            return True  # Fail-closed: If parsing fails, assume it's unsafe.
+            logger.warning("Could not parse SQL query. Flagging as high-risk for safety.")
+            return 2  # Fail-closed: If parsing fails, assume it's unsafe.
 
-        for stmt in parsed_statements:
+        # If there are multiple statements, we block it for safety to prevent complex attacks.
+        if len(parsed_statements) > 1:
+            logger.warning(f"Detected multiple SQL statements. Blocking for security: {sql_query}")
+            return 2
+
+        if not parsed_statements or len(parsed_statements) == 0:
+            logger.warning("No SQL statements parsed. Flagging as high-risk for safety.")
+            return 2
+
+        try:
+            stmt = parsed_statements[0]
             stmt_type = stmt.get_type()
             stmt_upper = str(stmt).strip().upper()
+        except Exception as e:
+            logger.error(f"Error accessing parsed SQL statement: {e}. Flagging as high-risk.")
+            return 2
 
-            # 1. Primary Check: If the statement type is not in our safe list, investigate further.
-            if stmt_type not in safe_statement_types:
-                # Handle UNKNOWN statements by checking for safe keywords at the beginning.
-                if stmt_type == 'UNKNOWN':
-                    if any(stmt_upper.startswith(keyword) for keyword in safe_unknown_keywords):
-                        continue  # It's a safe "UNKNOWN" type, check the next statement.
-                
-                # If it's not SELECT/USE and not a known-safe UNKNOWN, it's modifying.
-                logger.warning(f"Detected potentially modifying query. Statement type: '{stmt_type}'.")
-                return True
+        if stmt_type in structure_modifying_types:
+            logger.warning(f"Detected structure-modifying query (by type '{stmt_type}'). Blocking.")
+            return 2
 
-            # 2. Secondary Check for dangerous clauses in SELECT statements
-            if stmt_type == "SELECT":
-                if "INTO OUTFILE" in stmt_upper or "INTO DUMPFILE" in stmt_upper:
-                    logger.warning(f"Detected potentially harmful 'SELECT...INTO' clause: {sql_query}")
-                    return True
-                if "WITH RECURSIVE" in stmt_upper:
-                    logger.warning(f"Detected potentially harmful recursive query: {sql_query}")
-                    return True
+        if stmt_type in data_modifying_types:
+            return 1
 
-        # If all statements are of a safe type and pass secondary checks, the query is not modifying.
-        return False
+        if stmt_type in read_only_types:
+            # Secondary check for dangerous clauses sometimes found in SELECT statements
+            if "INTO OUTFILE" in stmt_upper or "INTO DUMPFILE" in stmt_upper:
+                logger.warning(f"Detected potentially harmful 'SELECT...INTO' clause. Blocking.")
+                return 2
+            return 0
+
+        # If the type is UNKNOWN or something else not on our lists, we block it.
+        logger.warning(f"Detected query with unclassified type '{stmt_type}'. Blocking for safety.")
+        return 2
 
     except Exception as e:
-        logger.error(f"Failed to parse SQL query for security check: {e}. Flagging as modifying for safety.")
-        return True # If any other exception occurs, fail-closed.
+        logger.error(f"Failed to parse SQL query for security check: {e}. Flagging as high-risk.")
+        return 2 # If any other exception occurs during parsing, fail-closed.
 
 # --- Pydantic Models ---
 class ChatRequest(BaseModel):
@@ -782,129 +800,115 @@ async def handle_chat(chat_request: ChatRequest):
     """Handles user messages, directs to SQL generation or conversational response, and executes SQL."""
     user_message = chat_request.message.strip()
     response_data: Dict[str, Any] = {"type": "error", "content": "An unexpected error occurred."}
-    query_to_run = None 
+    query_to_run: Optional[str] = None
     schema: Optional[Dict[str, Any]] = None 
 
     try:
+        # Step 1: Determine the query to run, either from a /run command or by generating it.
         if user_message.lower().startswith("/run "):
             query_to_run = user_message[5:].strip()
             if not query_to_run:
                 response_data = {"type": "error", "content": "No query provided after /run command."}
                 return JSONResponse(content=response_data)
-
-            if is_modifying_query(query_to_run):
-                logger.warning(f"User is attempting to run modifying query, requires confirmation: {query_to_run}")
-                response_data = {
-                    "type": "confirm_execution",
-                    "query": query_to_run,
-                    "message": "You are attempting to run the following query which may modify your data or database structure. Please review and confirm execution:"
-                }
-                return JSONResponse(content=jsonable_encoder(response_data))
         else:
             logger.info(f"Processing natural language query: {user_message}")
             schema = fetch_all_tables_and_columns()
             if "error" in schema:
-                 error_msg = "Could not fetch database schema to process your request."
-                 if schema.get("error", {}).get("schema"):
-                     error_msg += f" Error: {', '.join(schema['error']['schema'])}"
-                 response_data = {"type": "error", "content": error_msg}
-                 return JSONResponse(content=response_data)
+                error_msg = "Could not fetch database schema to process your request."
+                if schema.get("error", {}).get("schema"):
+                    error_msg += f" Error: {', '.join(schema['error']['schema'])}"
+                response_data = {"type": "error", "content": error_msg}
+                return JSONResponse(content=response_data)
 
             generated_sql = generate_sql_with_gemini(user_message, schema)
 
-            # If the model determines the query is conversational, just show that.
-            # ROBUSTNESS FIX: Use lower(), strip(), and startswith() for comparison.
             if generated_sql and generated_sql.strip().lower().startswith("error: this is a conversational query"):
                 logger.info("AI determined this is a conversational query. Replying with a generic message.")
-                # We can use the dedicated conversational model for a simple, polite reply.
                 response_data = {"type": "info", "content": get_conversational_response_with_gemini(user_message)}
                 return JSONResponse(content=jsonable_encoder(response_data))
 
             if not generated_sql or generated_sql.lower().startswith("error:"):
-                 # Handle cases where SQL generation fails for other reasons
-                 error_message = generated_sql if generated_sql else "The AI model could not generate an SQL query. Please try rephrasing."
-                 response_data = {"type": "error", "content": error_message}
-                 return JSONResponse(content=response_data)
+                error_message = generated_sql if generated_sql else "The AI model could not generate an SQL query. Please try rephrasing."
+                response_data = {"type": "error", "content": error_message}
+                return JSONResponse(content=response_data)
             
-            # Safety check: Use sqlparse to ensure only one statement is executed
-            parsed = sqlparse.parse(generated_sql)
-            if len(parsed) > 1:
-                logger.warning(f"AI returned multiple SQL statements. Executing only the first one: {str(parsed[0])}")
-                generated_sql = str(parsed[0]).strip()
-            
-            if is_modifying_query(generated_sql):
-                logger.info(f"Generated modifying SQL, requires confirmation: {generated_sql}")
+            query_to_run = generated_sql.strip()
+
+        # Step 2: Centralized security check for the determined query
+        risk_level = get_query_risk_level(query_to_run)
+
+        if risk_level == 2: # Block structure-modifying or unsafe queries
+            logger.warning(f"Blocking high-risk query: {query_to_run}")
+            response_data = {
+                "type": "error",
+                "content": "This action was blocked for security reasons.",
+                "ai_explanation": "The submitted query was identified as potentially altering database structure (e.g., using `CREATE`, `DROP`, `ALTER`) or containing other unsafe patterns. For safety, only data manipulation (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) and simple `SHOW` commands are processed."
+            }
+            return JSONResponse(content=jsonable_encoder(response_data))
+
+        elif risk_level == 1: # Require confirmation for data-modifying queries
+            logger.info(f"Query requires confirmation: {query_to_run}")
+            response_data = {
+                "type": "confirm_execution",
+                "query": query_to_run,
+                "message": "You are attempting to run the following query which may modify your data. Please review and confirm execution:"
+            }
+            return JSONResponse(content=jsonable_encoder(response_data))
+        
+        # Step 3: If query is safe (risk_level == 0), proceed with execution.
+        
+        # Special handling for plain 'SHOW TABLES;' to add context
+        if query_to_run.strip().lower() == 'show tables;':
+            logger.info("Detected plain 'SHOW TABLES;' query. Checking database context...")
+            current_schema = schema or fetch_all_tables_and_columns()
+            user_databases = [
+                db for db, tables in current_schema.items()
+                if db != 'error' and db not in {'information_schema', 'mysql', 'performance_schema', 'sys'} and isinstance(tables, dict) and 'error' not in tables
+            ]
+            if len(user_databases) == 1:
+                db_to_use = user_databases[0]
+                logger.info(f"Found single user database '{db_to_use}'. Rewriting query.")
+                query_to_run = f"SHOW TABLES FROM `{db_to_use}`;"
+
+            elif len(user_databases) > 1:
+                logger.warning("Multiple user databases exist. Cannot execute plain 'SHOW TABLES;'.")
                 response_data = {
-                    "type": "confirm_execution",
-                    "query": generated_sql,
-                    "message": "The AI generated the following query which may modify your data or database structure. Please review and confirm execution:"
+                    "type": "error",
+                    "content": f"Please specify which database's tables you want to see. Multiple databases found: {', '.join(user_databases)}. \nTry 'show tables from database_name;' or ask like 'what tables are in {user_databases[0]}?'."
                 }
                 return JSONResponse(content=jsonable_encoder(response_data))
-            else:
-                query_to_run = generated_sql
+            else: # No user databases found
+                logger.warning("No user databases found to execute 'SHOW TABLES;' against.")
+                response_data = { "type": "error", "content": "No user databases found or accessible. Cannot show tables." }
+                return JSONResponse(content=jsonable_encoder(response_data))
         
-        if query_to_run:
-            if query_to_run.strip().lower() == 'show tables;':
-                logger.info("Detected plain 'SHOW TABLES;' query. Checking database context...")
-                current_schema = schema or fetch_all_tables_and_columns()
-                user_databases = [
-                    db for db, tables in current_schema.items()
-                    if db != 'error' and db not in {'information_schema', 'mysql', 'performance_schema', 'sys'} and isinstance(tables, dict) and 'error' not in tables
-                ]
-                if len(user_databases) == 1:
-                    db_to_use = user_databases[0]
-                    logger.info(f"Found single user database '{db_to_use}'. Prepending USE statement.")
-                    query_to_run = f"USE `{db_to_use}`; {query_to_run}"
-                elif len(user_databases) > 1:
-                    logger.warning("Multiple user databases exist. Cannot execute plain 'SHOW TABLES;'.")
-                    response_data = {
-                        "type": "error",
-                        "content": f"Please specify which database's tables you want to see. Multiple databases found: {', '.join(user_databases)}. \nTry 'show tables from database_name;' or ask like 'what tables are in {user_databases[0]}?'."
-                    }
-                    return JSONResponse(content=jsonable_encoder(response_data))
-                else: # No user databases found
-                    logger.warning("No user databases found to execute 'SHOW TABLES;' against.")
-                    response_data = { "type": "error", "content": "No user databases found or accessible. Cannot show tables." }
-                    return JSONResponse(content=jsonable_encoder(response_data))
+        # --- Direct execution for safe (risk_level == 0) queries ---
+        logger.info(f"Executing safe, final query: {query_to_run}")
+        results, columns, col_types, status, db_error = execute_sql_query(query_to_run)
+        
+        if status == 3: # SQL Error
+            if schema is None:
+                logger.info("Fetching schema for error context.")
+                schema = fetch_all_tables_and_columns()
 
-            logger.info(f"Executing final query: {query_to_run}")
-            results, columns, col_types, status, db_error = execute_sql_query(query_to_run)
+            # Determine original intent for better AI explanation
+            original_intent = user_message if not user_message.lower().startswith("/run ") else None
             
-            if status == 3: # SQL Error
-                 if schema is None:
-                     logger.info("Fetching schema for error context.")
-                     schema = fetch_all_tables_and_columns()
+            error_content = f"Query failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
+            ai_explanation = get_error_explanation_with_gemini(original_user_query=original_intent, failed_sql_query=query_to_run, error_message=str(db_error), schema=schema)
+            response_data = {"type": "error", "content": error_content, "ai_explanation": ai_explanation}
 
-                 error_content = f"SQL Error: {db_error or 'Query execution failed.'}"
-                 ai_explanation = ""
-                 if 'generated_sql' in locals() and generated_sql == query_to_run:
-                     error_content = f"Generated SQL failed to execute:\n```sql\n{generated_sql}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
-                     ai_explanation = get_error_explanation_with_gemini(original_user_query=user_message, failed_sql_query=generated_sql, error_message=str(db_error), schema=schema)
-                 elif 'generated_sql' in locals() and query_to_run.endswith(generated_sql): # Check if it's the modified version (e.g. with USE prepended)
-                     error_content = f"Generated SQL (modified) failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
-                     ai_explanation = get_error_explanation_with_gemini(original_user_query=user_message, failed_sql_query=query_to_run, error_message=str(db_error), schema=schema)
-                 else: # For /run commands 
-                     error_content = f"Query failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
-                     ai_explanation = get_error_explanation_with_gemini(original_user_query=None, failed_sql_query=query_to_run, error_message=str(db_error), schema=schema)
-                 response_data = {"type": "error", "content": error_content, "ai_explanation": ai_explanation}
-
-            elif status == 2: # DML/DDL Success
-                response_data = {"type": "info", "content": f"Query executed successfully:\n\n```sql\n{query_to_run}\n```"}
-            elif status == 1: # SELECT/SHOW Success
-                 insights = ""
-                 if results is not None and columns and col_types:
-                     original_user_intent = user_message
-                     if user_message.lower().startswith("/run "): original_user_intent = f"Direct execution: {user_message[5:].strip()}"
-                     insights = get_insights_with_gemini(original_query=original_user_intent, sql_query=query_to_run, results=results, columns=columns, col_types=col_types)
-                 response_data = {"type": "result", "query": query_to_run, "columns": columns, "results": results, "insights": insights }
-            else: 
-                 response_data = {"type": "error", "content": "Unknown query execution status."}
-        else:
-             # This path is reached if AI generation resulted in a query requiring confirmation,
-             # and that confirmation response was already sent. Or other early exits.
-             if response_data.get("content") == "An unexpected error occurred.":
-                 logger.error("Reached end of handler without a query to execute or a specific response being sent.")
-                 response_data = {"type": "error", "content": "Could not determine an action for your message."}
+        elif status == 2: # DML/DDL Success (Should not be reached from this endpoint anymore)
+            response_data = {"type": "info", "content": f"Query executed successfully:\n\n```sql\n{query_to_run}\n```"}
+        elif status == 1: # SELECT/SHOW Success
+            insights = ""
+            if results is not None and columns and col_types:
+                original_user_intent = user_message
+                if user_message.lower().startswith("/run "): original_user_intent = f"Direct execution: {user_message[5:].strip()}"
+                insights = get_insights_with_gemini(original_query=original_user_intent, sql_query=query_to_run, results=results, columns=columns, col_types=col_types)
+            response_data = {"type": "result", "query": query_to_run, "columns": columns, "results": results, "insights": insights }
+        else: 
+            response_data = {"type": "error", "content": "Unknown query execution status."}
 
         return JSONResponse(content=jsonable_encoder(response_data))
     
