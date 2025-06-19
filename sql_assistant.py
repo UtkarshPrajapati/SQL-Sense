@@ -2,7 +2,6 @@ import os
 import logging
 import json
 from typing import List, Dict, Any, Tuple, Optional
-
 import mysql.connector
 import sqlparse
 from mysql.connector import FieldType
@@ -12,7 +11,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
-# import google.generativeai as genai
 from google import genai
 from dotenv import load_dotenv
 import functools
