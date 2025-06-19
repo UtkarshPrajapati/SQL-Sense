@@ -42,10 +42,13 @@ Traditional SQL clients are great at running queries—but they assume you alrea
 
 -   **🤖 Natural Language to SQL:** Ask questions in English; get SQL queries in return.
 -   **🚀 Direct SQL Execution:** A `/run` command to execute raw SQL queries for power users.
--   **📈 AI-Powered Insights:** Automatically generates summaries and insights from query results.
--   **👁️ Dynamic Schema Viewer:** An interactive sidebar displays your database schemas and tables in real-time.
--   **💬 Modern Chat Interface:** A sleek, responsive, and user-friendly chat UI for a seamless experience.
--   **⚙️ Tech Stack:** Powered by FastAPI, Google Gemini, MySQL, and a clean HTML/TailwindCSS frontend.
+-   **📈 AI-Powered Insights:** Automatically generates summaries and follow-up questions from query results.
+-   **💡 AI-Powered Troubleshooting:** Automatically provides plain-English explanations and suggestions for failed SQL queries.
+-   **🛡️ Advanced Security:** Intercepts potentially harmful queries. Data-modifying queries (e.g., `UPDATE`, `INSERT`) require user confirmation, while structure-altering queries (e.g., `DROP`, `ALTER`) are blocked entirely.
+-   **👁️ Dynamic Schema Viewer:** An interactive sidebar displays your database schemas, tables, and columns in real-time.
+-   **⚡ Interactive Querying:** Click-to-run buttons appear on suggested SQL, allowing for one-click execution right from the chat.
+-   **⚙️ On-the-Fly Configuration:** Update database credentials and API keys from the UI without needing to restart the server.
+-   **💬 Modern Chat Interface:** A sleek, responsive, and user-friendly chat UI built with TailwindCSS, featuring toast notifications and a seamless user experience.
 
 ---
 
@@ -108,7 +111,7 @@ A visual tour of SQL-Sense, from its architecture to its user interface.
 
 <p align="center">
   <strong>Query Results & Insights</strong><br>
-  <em>An example of the application returning query results, generated SQL, and AI-driven insights.</em>
+  <em>An example of the application returning query results, generated SQL, AI-driven insights, and AI-powered troubleshooting for errors.</em>
 </p>
 <p align="center">
   <img src="assets/ui-query-result.png" alt="Query Results and Insights" width="700"/>
@@ -217,6 +220,7 @@ MYSQL_HOST=localhost
 MYSQL_USER=root
 MYSQL_PASSWORD=your_mysql_password
 MYSQL_DATABASE=sqlllm
+MYSQL_DATABASE_STORE=StoreDB
 
 # Google Gemini API Configuration
 GEMINI_API_KEY=your_gemini_api_key
@@ -255,10 +259,11 @@ The `--reload` flag enables hot-reloading for development. The application will 
 ## 📖 How to Use
 
 1.  **Open the Web Interface:** Navigate to `http://127.0.0.1:8000` in your web browser.
-2.  **View Schema:** Click the "Show Databases" button to see the tables and columns the AI is aware of.
+2.  **View Schema:** Click the "View Schema" button to see the tables and columns the AI is aware of.
 3.  **Ask a Question:** Type a question in plain English, like `show me all employees and their salaries`.
 4.  **Execute Direct SQL:** For precise control, use the `/run` command followed by a SQL query. For example: `/run SELECT product_name, price FROM products WHERE price > 50;`
 5.  **Review Results:** The application will display the generated SQL, the data results in a table, and a summary of insights derived by the AI.
+6.  **One-Click Execution:** If the assistant suggests an SQL query, click the "Run Query" button that appears over the code block to execute it immediately.
 
 ---
 
@@ -268,9 +273,10 @@ The `--reload` flag enables hot-reloading for development. The application will 
 |--------|----------|-------------|
 | **GET** | `/` | Serves the `index.html` single-page application. |
 | **GET** | `/schema` | Returns JSON containing databases, tables, and columns the assistant can access. |
-| **POST** | `/config` | Body: `{ "mysql_host": "...", "mysql_user": "...", "mysql_password": "...", "mysql_database": "...", "gemini_api_key": "..." }` – Updates connection credentials and tests them. |
+| **GET** | `/config_status`| Returns the public configuration status (e.g., host, user, and whether keys are set). |
+| **POST** | `/config` | Body: `{ "mysql_host": "...", "mysql_user": "...", "mysql_password": "...", "gemini_api_key": "..." }` – Updates connection credentials and tests them. No restart needed. |
 | **POST** | `/chat` | Body: `{ "message": "<natural-language question or /run <SQL>>" }` – Main interaction endpoint: accepts NL queries or `/run` SQL commands, returns results/insights. |
-| **POST** | `/execute_confirmed_sql` | Body: `{ "query": "<SQL previously flagged for confirmation>" }` – Executes DDL/DML queries that the user has reviewed and approved. |
+| **POST** | `/execute_confirmed_sql` | Body: `{ "query": "<SQL previously flagged for confirmation>" }` – Executes DML queries that the user has reviewed and approved. |
 
 All responses are JSON and follow the shape documented in the code. Unhandled errors are returned with appropriate HTTP status codes.
 
