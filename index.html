@@ -827,8 +827,55 @@
 
             messageDiv.className = `p-3 rounded-lg ${bgColor} ${textColor} max-w-3xl ${alignment} prose prose-sm max-w-none`; // Use prose for markdown styling
             messageDiv.innerHTML = messageHtml; // Use innerHTML as we are injecting HTML
+            
+            // --- ADDED: Logic to add "Run Query" buttons to SQL code blocks ---
+            if (sender === 'assistant') {
+                const codeBlocks = messageDiv.querySelectorAll('pre code.language-sql');
+                codeBlocks.forEach(codeBlock => {
+                    const preElement = codeBlock.parentElement;
+                    if (!preElement) return;
+
+                    const query = codeBlock.textContent.trim();
+
+                    if (query) {
+                        // Create a wrapper for relative positioning
+                        const wrapper = document.createElement('div');
+                        wrapper.className = 'relative'; // No longer need 'group' for hover
+
+                        const runButton = document.createElement('button');
+                        runButton.className = 'absolute top-2 right-2 text-white text-xs font-semibold py-1 px-2 rounded-md transition-all flex items-center justify-center';
+                        runButton.style.backgroundColor = 'var(--md-accent-color)';
+                        runButton.innerHTML = `<i data-lucide="play" class="h-3 w-3 inline-block mr-1 -ml-1"></i> Run Query`;
+                        
+                        runButton.addEventListener('mouseover', () => runButton.style.backgroundColor = 'var(--md-primary-color)');
+                        runButton.addEventListener('mouseout', () => runButton.style.backgroundColor = 'var(--md-accent-color)');
+
+                        runButton.addEventListener('click', () => {
+                            showRunCommandTag();
+                            messageInput.value = query;
+                            messageInput.focus();
+                        });
+
+                        // Replace the original <pre> with the wrapper containing the <pre> and the button
+                        if(preElement.parentNode) {
+                            preElement.parentNode.replaceChild(wrapper, preElement);
+                        }
+                        wrapper.appendChild(preElement);
+                        wrapper.appendChild(runButton);
+                    }
+                });
+                // After adding new icons via innerHTML, we must re-run lucide.
+                // MOVED: lucide.createIcons();
+            }
+            // --- END ADDED LOGIC ---
+
             chatHistory.appendChild(messageDiv);
             chatHistory.scrollTop = chatHistory.scrollHeight; // Scroll to bottom
+
+            // ADDED: Call lucide.createIcons() AFTER the message is appended to the DOM
+            if (sender === 'assistant') {
+                lucide.createIcons();
+            }
         }
 
         function createTableHtml(columns, results) {
