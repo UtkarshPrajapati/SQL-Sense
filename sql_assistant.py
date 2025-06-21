@@ -576,6 +576,10 @@ Instructions:
 - Provide concise, insightful observations based *only* on the provided data sample.
 - Do not invent data or make assumptions beyond what's shown.
 - Suggest 1-2 potential follow-up questions or SQL queries the user might be interested in, based on these results and the original question.
+- **Crucially, any suggested SQL query MUST be enclosed in its own Markdown fenced code block with the `sql` language identifier.** For example:
+```sql
+SELECT your_column FROM your_table;
+```
 - Format your response clearly using Markdown. Start with "### Data Insights" and then "### Suggested Follow-up".
 
 Analysis:"""
@@ -807,14 +811,33 @@ async def read_root(request: Request):
     """
     response = templates.TemplateResponse("index.html", {"request": request})
 
-    # If no session cookie is present on the incoming request, create one.
-    if "session_id" not in request.cookies:
-        session_id = uuid.uuid4()
-        initial_data = SessionData()
-        # Add the welcome message to the history for this new session - REMOVED
-        # add_to_history(initial_data, "model", "Hello! I'm your SQL assistant. How can I help you with your databases today?")
-        await session_backend.create(session_id, initial_data)
-        cookie.attach_to_response(response, session_id)
+    # Robust session handling:
+    # 1. If there is no cookie, create a new session.
+    # 2. If there is a cookie but the session is missing in the backend (e.g., after a server reboot),
+    #    create a new session and overwrite the stale cookie so that subsequent requests are valid.
+
+    create_fresh_session = False
+    existing_sid_str = request.cookies.get("session_id")
+
+    if existing_sid_str:
+        try:
+            existing_sid = uuid.UUID(existing_sid_str)
+            # Check if this session actually exists in the backend
+            existing_session = await session_backend.read(existing_sid)
+            if existing_session is None:
+                # Stale / unknown session – we need a fresh one
+                create_fresh_session = True
+        except Exception:
+            # Malformed UUID or other issue – issue a fresh session
+            create_fresh_session = True
+    else:
+        # No cookie at all
+        create_fresh_session = True
+
+    if create_fresh_session:
+        new_session_id = uuid.uuid4()
+        await session_backend.create(new_session_id, SessionData())
+        cookie.attach_to_response(response, new_session_id)
 
     return response
 
@@ -1123,7 +1146,7 @@ async def startup_event():
     session_id = uuid.uuid4()
     initial_data = SessionData()
     # Pre-populate the first session with a welcome message - REMOVED
-    # add_to_history(initial_data, "model", "Hello! I'm your SQL assistant. How can I help you with your databases today?")
+    # add_to_history(initial_data, "model", "Hello! I'm your SQL assistant. How can I help you with your databases today?") - REMOVED
     await session_backend.create(session_id, initial_data)
     # The frontend will receive this session_id via the response from "/"
     
