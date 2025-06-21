@@ -174,6 +174,7 @@ A visual tour of DataFlow, from its architecture to its user interface.
 </table>
 
 **Backend:** Python, FastAPI, Uvicorn, Google GenAI API, MySQL Connector, Pydantic, python-dotenv, sqlparse, fastapi-sessions
+
 **Frontend:** HTML, TailwindCSS, Marked.js, DOMPurify, Lucide Icons
 
 ---
