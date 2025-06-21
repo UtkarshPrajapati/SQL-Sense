@@ -1,4 +1,4 @@
-# 🤖 SQL-Sense: Your Intelligent Database Assistant
+# 🤖 DataFlow: Your Intelligent Database Assistant
 
 [![Python Version](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Framework](https://img.shields.io/badge/Framework-FastAPI-05998b.svg)](https://fastapi.tiangolo.com/)
@@ -6,13 +6,13 @@
 [![Made with Love](https://img.shields.io/badge/Made%20with-❤-ff69b4)](#)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#-contributing)
 
-SQL-Sense bridges the gap between humans and relational data. Ask questions in plain English and instantly receive optimized SQL, live results, and AI-generated insights – all without leaving the browser. ✨
+DataFlow bridges the gap between humans and relational data. Ask questions in plain English and instantly receive optimized SQL, live results, and AI-generated insights – all without leaving the browser. ✨
 
 ---
 
 ## 📚 Table of Contents
 
-1. [Why SQL-Sense?](#-why-sql-sense)
+1. [Why DataFlow?](#-why-dataflow)
 2. [Key Features](#-key-features)
 3. [Project Showcase](#-project-showcase)
 4. [Technologies and Core Libraries](#%EF%B8%8F-technologies-and-core-libraries)
@@ -27,9 +27,9 @@ SQL-Sense bridges the gap between humans and relational data. Ask questions in p
 
 ---
 
-## ❓ Why SQL-Sense?
+## ❓ Why DataFlow?
 
-Traditional SQL clients are great at running queries—but they assume you already *know* SQL and your schema inside-out. SQL-Sense removes that barrier:
+Traditional SQL clients are great at running queries—but they assume you already *know* SQL and your schema inside-out. DataFlow removes that barrier:
 
 * **No more context-switching.** Ask questions in plain language and stay focused on your analysis.
 * **Instant productivity.** New teammates or non-technical stakeholders can explore data without a crash-course in SQL.
@@ -40,21 +40,22 @@ Traditional SQL clients are great at running queries—but they assume you alrea
 
 ## ✨ Key Features
 
--   **🤖 Natural Language to SQL:** Ask questions in English; get SQL queries in return.
+-   **🤖 Natural Language to SQL:** Ask questions in English; get optimized SQL queries in return.
 -   **🚀 Direct SQL Execution:** A `/run` command to execute raw SQL queries for power users.
--   **📈 AI-Powered Insights:** Automatically generates summaries and follow-up questions from query results.
--   **💡 AI-Powered Troubleshooting:** Automatically provides plain-English explanations and suggestions for failed SQL queries.
+-   **📈 AI-Powered Insights:** Automatically generates summaries and suggests relevant follow-up questions from query results.
+-   **💡 AI-Powered Troubleshooting:** When a query fails, the AI provides a plain-English explanation of the error and suggests a fix based on your database schema.
 -   **🛡️ Advanced Security:** Intercepts potentially harmful queries. Data-modifying queries (e.g., `UPDATE`, `INSERT`) require user confirmation, while structure-altering queries (e.g., `DROP`, `ALTER`) are blocked entirely.
--   **👁️ Dynamic Schema Viewer:** An interactive sidebar displays your database schemas, tables, and columns in real-time.
--   **⚡ Interactive Querying:** Click-to-run buttons appear on suggested SQL, allowing for one-click execution right from the chat.
--   **⚙️ On-the-Fly Configuration:** Update database credentials and API keys from the UI without needing to restart the server.
--   **💬 Modern Chat Interface:** A sleek, responsive, and user-friendly chat UI built with TailwindCSS, featuring toast notifications and a seamless user experience.
+-   **👁️ Dynamic Schema Viewer:** An interactive, collapsible sidebar displays your database schemas, tables, and columns in real-time.
+-   **⚡ Interactive Querying:** Click-to-run buttons appear on suggested SQL code blocks, allowing for one-click execution right from the chat.
+-   **⚙️ On-the-Fly Configuration:** Update database credentials and API keys from the UI without needing to restart the server. Your settings are securely saved in a local `.env` file.
+-   **💬 Session-Based History:** Chat history is tied to your browser session, providing a persistent and private workspace. Start a new chat anytime.
+-   **🎨 Modern Material UI:** A sleek, responsive, and user-friendly chat UI built with TailwindCSS and inspired by Material Design, featuring toast notifications and a seamless user experience.
 
 ---
 
 ## 🚀 Project Showcase
 
-A visual tour of SQL-Sense, from its architecture to its user interface.
+A visual tour of DataFlow, from its architecture to its user interface.
 
 <details>
 <summary><strong>🏛️ System Architecture & Workflow (Click to Expand)</strong></summary>
@@ -172,10 +173,13 @@ A visual tour of SQL-Sense, from its architecture to its user interface.
   </tr>
 </table>
 
+**Backend:** Python, FastAPI, Uvicorn, Google GenAI API, MySQL Connector, Pydantic, python-dotenv, sqlparse, fastapi-sessions
+**Frontend:** HTML, TailwindCSS, Marked.js, DOMPurify, Lucide Icons
+
 ---
 ## ⚙️ Setup and Installation
 
-Follow these steps to get SQL-Sense running on your local machine.
+Follow these steps to get DataFlow running on your local machine.
 
 ### 1. Prerequisites
 
@@ -209,7 +213,7 @@ source venv/bin/activate
 You'll need to provide your database credentials and Gemini API key.
 
 1.  Create a new file named `.env` in the root of the project.
-2.  Copy the contents of `.env.example` into it and fill in your details.
+2.  You can leave it empty initially and configure it via the UI, or pre-fill it with the following keys. A session key will be generated automatically if not provided.
 
 <details>
 <summary><strong>Example `.env` structure (Click to Expand)</strong></summary>
@@ -219,11 +223,13 @@ You'll need to provide your database credentials and Gemini API key.
 MYSQL_HOST=localhost
 MYSQL_USER=root
 MYSQL_PASSWORD=your_mysql_password
-MYSQL_DATABASE=sqlllm
-MYSQL_DATABASE_STORE=StoreDB
+MYSQL_DATABASE=SQLLLM
 
 # Google Gemini API Configuration
 GEMINI_API_KEY=your_gemini_api_key
+
+# Session Management (Optional, will be auto-generated)
+SESSION_SECRET_KEY=your_super_secret_key_for_sessions
 ```
 </details>
 
@@ -241,29 +247,31 @@ Run the provided script to create the necessary tables and populate them with re
 ```bash
 python gen-data.py
 ```
-This script will create two databases:
-1.  **`sqlllm`** (or the value of `MYSQL_DATABASE` in `.env`): Contains `employees` and `salaries` tables.
-2.  **`StoreDB`** (or the value of `MYSQL_DATABASE_STORE` in `.env`): Contains the `products` table.
+This script will create two databases by default:
+1.  **`SQLLLM`**: Contains `employees` and `salaries` tables.
+2.  **`StoreDB`**: Contains a `products` table.
 
 It will then populate these tables with sample data.
 
 ### 7. Run the Application
-You're all set! Start the FastAPI server using Uvicorn.
+You're all set! Start the FastAPI server.
 ```bash
-uvicorn sql_assistant:app --reload
+python sql_assistant.py
 ```
-The `--reload` flag enables hot-reloading for development. The application will be live at **http://127.0.0.1:8000**.
+The application will be live at **http://127.0.0.1:6969**.
 
 ---
 
 ## 📖 How to Use
 
-1.  **Open the Web Interface:** Navigate to `http://127.0.0.1:8000` in your web browser.
-2.  **View Schema:** Click the "View Schema" button to see the tables and columns the AI is aware of.
-3.  **Ask a Question:** Type a question in plain English, like `show me all employees and their salaries`.
-4.  **Execute Direct SQL:** For precise control, use the `/run` command followed by a SQL query. For example: `/run SELECT product_name, price FROM products WHERE price > 50;`
-5.  **Review Results:** The application will display the generated SQL, the data results in a table, and a summary of insights derived by the AI.
-6.  **One-Click Execution:** If the assistant suggests an SQL query, click the "Run Query" button that appears over the code block to execute it immediately.
+1.  **Open the Web Interface:** Navigate to `http://127.0.0.1:6969` in your web browser.
+2.  **Configure Credentials:** Click the "Config" button to enter your MySQL and Gemini API Key details. They will be saved for future sessions.
+3.  **View Schema:** Click the "View Schema" button to see the tables and columns the AI is aware of.
+4.  **Ask a Question:** Type a question in plain English, like `show me all employees and their salaries`.
+5.  **Execute Direct SQL:** For precise control, use the `/run` command followed by a SQL query. For example: `/run SELECT product_name, price FROM products WHERE price > 50;`
+6.  **Review Results:** The application will display the generated SQL, the data results in a table, and a summary of insights derived by the AI.
+7.  **One-Click Execution:** If the assistant suggests an SQL query, click the "Run Query" button that appears over the code block to execute it immediately.
+8.  **Start a New Chat:** Click the "New Chat" button to clear the conversation and start fresh.
 
 ---
 
@@ -271,12 +279,13 @@ The `--reload` flag enables hot-reloading for development. The application will 
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| **GET** | `/` | Serves the `index.html` single-page application. |
+| **GET** | `/` | Serves the `index.html` single-page application and manages session creation. |
 | **GET** | `/schema` | Returns JSON containing databases, tables, and columns the assistant can access. |
 | **GET** | `/config_status`| Returns the public configuration status (e.g., host, user, and whether keys are set). |
 | **POST** | `/config` | Body: `{ "mysql_host": "...", "mysql_user": "...", "mysql_password": "...", "gemini_api_key": "..." }` – Updates connection credentials and tests them. No restart needed. |
 | **POST** | `/chat` | Body: `{ "message": "<natural-language question or /run <SQL>>" }` – Main interaction endpoint: accepts NL queries or `/run` SQL commands, returns results/insights. |
 | **POST** | `/execute_confirmed_sql` | Body: `{ "query": "<SQL previously flagged for confirmation>" }` – Executes DML queries that the user has reviewed and approved. |
+| **POST**| `/reset_chat` | Clears the chat history for the current user session. |
 
 All responses are JSON and follow the shape documented in the code. Unhandled errors are returned with appropriate HTTP status codes.
 
@@ -290,7 +299,7 @@ All responses are JSON and follow the shape documented in the code. Unhandled er
 **Cause:** The MySQL credentials in your `.env` file don't have permission to see user databases, or no user databases exist.
 
 **Fix:**
-1. Verify `MYSQL_USER` / `MYSQL_PASSWORD` in `.env`.
+1. Verify `MYSQL_USER` / `MYSQL_PASSWORD` in `.env` or via the UI Config panel.
 2. Check that your user has at least `SELECT` privilege on the target databases.
 3. Use the `/config` endpoint (or restart the app) after updating credentials.
 </details>
@@ -308,18 +317,18 @@ The `GEMINI_API_KEY` environment variable is missing or invalid.
 <details>
 <summary><strong>"Client does not support authentication protocol" MySQL error</strong></summary>
 
-Your MySQL server may be using the newer `caching_sha2_password` plugin while the connector expects `mysql_native_password`.
+Your MySQL server may be using the newer `caching_sha2_password` plugin while the connector expects `mysql_native_password`. The application attempts to use `mysql_native_password` by default. If this error still occurs, you may need to update your user configuration in MySQL.
 
 ```sql
 ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'your_password';
 FLUSH PRIVILEGES;
 ```
 
-Alternatively, create a dedicated read-only user for SQL-Sense with compatible auth.
+Alternatively, create a dedicated read-only user for DataFlow with compatible auth.
 </details>
 
 <details>
-<summary><strong>The UI shows "pending..." after I submit a question</strong></summary>
+<summary><strong>The UI shows a loading spinner that never stops after I submit a question</strong></summary>
 
 Check the backend logs; the LLM may be taking longer than expected or returning a safety block. Increase the `timeout` on your HTTP client if you've reverse-proxied the API.
 </details>
@@ -337,6 +346,7 @@ Check the backend logs; the LLM may be taking longer than expected or returning 
 ├── index.html          # Main frontend file
 ├── requirements.txt    # Python dependencies
 ├── sql_assistant.py    # FastAPI backend logic
+├── static              # Static assets for the logo
 └── venv                # Virtual environment folder
 ```
 
