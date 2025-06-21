@@ -211,10 +211,14 @@ source venv/bin/activate
 
 ### 4. Configure Environment Variables
 
-You'll need to provide your database credentials and Gemini API key.
+It is **not strictly necessary** to create a `.env` file before starting, but it is recommended for providing your database credentials and Gemini API key.
 
-1.  Create a new file named `.env` in the root of the project.
-2.  You can leave it empty initially and configure it via the UI, or pre-fill it with the following keys. A session key will be generated automatically if not provided.
+**How it works:**
+*   **No `.env` file:** The application will start with default settings (attempting to connect to MySQL on `localhost` with user `root`). You can then use the web UI's **Config** panel to enter your credentials, which will automatically create a `.env` file for you.
+*   **With a `.env` file:** You can create a file named `.env` in the project root to pre-configure the application.
+
+1.  Create a file named `.env` in the root of the project (optional).
+2.  Add the keys you need. The application will use defaults for any keys that are not provided.
 
 <details>
 <summary><strong>Example `.env` structure (Click to Expand)</strong></summary>
