@@ -30,7 +30,6 @@ logger = logging.getLogger(__name__)
 MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
 MYSQL_USER = os.getenv("MYSQL_USER", "root")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "root")
-MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "SQLLLM")
 
 # Gemini API Configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -163,13 +162,12 @@ initialize_gemini_api()
 # Function to update environment variables and .env file
 def update_environment(config_data):
     """Updates environment variables and .env file with new configurations."""
-    global MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE, GEMINI_API_KEY
+    global MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, GEMINI_API_KEY
     
     defaults = {
         "mysql_host": "localhost",
         "mysql_user": "root",
         "mysql_password": "root",
-        "mysql_database": "SQLLLM",
         "gemini_api_key": "" # Explicitly empty for API key default handling
     }
     
@@ -183,9 +181,6 @@ def update_environment(config_data):
     
     MYSQL_PASSWORD = config_data["mysql_password"] if config_data.get("mysql_password") else defaults["mysql_password"]
     os.environ["MYSQL_PASSWORD"] = MYSQL_PASSWORD
-    
-    MYSQL_DATABASE = config_data["mysql_database"] if config_data.get("mysql_database") else defaults["mysql_database"]
-    os.environ["MYSQL_DATABASE"] = MYSQL_DATABASE
     
     # For Gemini API key, allow an empty string from config_data to be set
     if "gemini_api_key" in config_data:
@@ -202,13 +197,12 @@ def update_environment(config_data):
 # Function to update .env file
 def update_env_file(): # Removed config_data and defaults parameters
     """Updates .env file with the current global configuration values."""
-    global MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE, GEMINI_API_KEY, SESSION_SECRET_KEY
+    global MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, GEMINI_API_KEY, SESSION_SECRET_KEY
     try:
         env_values_to_write = {
             "MYSQL_HOST": MYSQL_HOST,
             "MYSQL_USER": MYSQL_USER,
             "MYSQL_PASSWORD": MYSQL_PASSWORD,
-            "MYSQL_DATABASE": MYSQL_DATABASE,
             "GEMINI_API_KEY": GEMINI_API_KEY,
             "SESSION_SECRET_KEY": SESSION_SECRET_KEY
         }

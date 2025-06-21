@@ -228,7 +228,6 @@ It is **not strictly necessary** to create a `.env` file before starting, but it
 MYSQL_HOST=localhost
 MYSQL_USER=root
 MYSQL_PASSWORD=your_mysql_password
-MYSQL_DATABASE=SQLLLM
 
 # Google Gemini API Configuration
 GEMINI_API_KEY=your_gemini_api_key

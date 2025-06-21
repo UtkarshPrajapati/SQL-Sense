@@ -11,10 +11,10 @@ load_dotenv()
 MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
 MYSQL_USER = os.getenv("MYSQL_USER", "root")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "root")
-MYSQL_DATABASE_MAIN = os.getenv("MYSQL_DATABASE", "SQLLLM") # Renamed for clarity
+MYSQL_DATABASE_MAIN = "SQLLLM" # Renamed for clarity
 
 # --- NEW: Second Database Config ---
-MYSQL_DATABASE_STORE = os.getenv("MYSQL_DATABASE_STORE", "StoreDB") # New DB name
+MYSQL_DATABASE_STORE = "StoreDB" # New DB name
 
 fake = Faker('en_IN') # Using Indian locale, adjust if needed
 
