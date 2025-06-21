@@ -37,8 +37,40 @@ gemini_initialized = False
 # Global Gemini Client
 gemini_client: Optional[genai.client.Client] = None
 
+# In-memory store for chat history (a list of message dictionaries)
+chat_history_store: List[Dict[str, Any]] = []
+MAX_HISTORY_LENGTH = 20 # Max number of user/model turn pairs to keep
+
 # Path to .env file
 ENV_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+
+# --- Chat History Management ---
+
+def add_to_history(role: str, text: str):
+    """
+    Adds a message to the chat history and truncates it if it's too long.
+    Args:
+        role: 'user' or 'model'.
+        text: The content of the message.
+    """
+    global chat_history_store
+    
+    # The Gemini API expects a specific format for history.
+    # Each entry is a dict with 'role' and 'parts'.
+    chat_history_store.append({"role": role, "parts": [{"text": text}]})
+
+    # Keep the history from getting too long to save tokens.
+    # We remove the oldest entries (2 at a time, one user + one model).
+    if len(chat_history_store) > MAX_HISTORY_LENGTH * 2:
+        # Remove the first two items (the oldest user/model pair)
+        chat_history_store = chat_history_store[2:]
+        logger.info(f"Chat history truncated. Current length: {len(chat_history_store)}")
+
+def clear_chat_history():
+    """Clears the global chat history."""
+    global chat_history_store
+    chat_history_store = []
+    logger.info("Chat history has been cleared.")
 
 # Function to initialize Gemini API
 def initialize_gemini_api():
@@ -381,7 +413,7 @@ def ensure_gemini_initialized(func):
     return wrapper
 
 @ensure_gemini_initialized
-def generate_sql_with_gemini(user_query: str, schema: Dict[str, Dict[str, List[str]]]) -> Optional[str]:
+def generate_sql_with_gemini(user_query: str, schema: Dict[str, Dict[str, List[str]]], history: List[Dict[str, Any]]) -> Optional[str]:
     """Generates an SQL query using the Gemini API based on user input and multi-DB schema."""
     schema_string = ""
     if not schema or "error" in schema: 
@@ -401,7 +433,8 @@ def generate_sql_with_gemini(user_query: str, schema: Dict[str, Dict[str, List[s
             else:
                  schema_string += f"  Error retrieving table details for this database.\n"
 
-    prompt = f"""You are an expert SQL assistant. Given the following database schema across potentially multiple databases and a user question, generate the most appropriate SQL query to answer the question.
+    # The system instruction or initial prompt part
+    system_prompt = f"""You are an expert SQL assistant. Given the following database schema across potentially multiple databases and a user question, generate the most appropriate SQL query to answer the question.
 
 Database Schema:
 {schema_string}
@@ -420,6 +453,10 @@ Instructions:
 
 SQL Query:"""
 
+    # Combine the history with the new system prompt
+    # The API expects the 'contents' to be a list of these dictionaries.
+    request_contents = history + [{"role": "user", "parts": [{"text": system_prompt}]}]
+
     try:
         # The new SDK uses client.models.generate_content
         if not gemini_client:
@@ -427,7 +464,7 @@ SQL Query:"""
             
         response = gemini_client.models.generate_content(
             model=GEMINI_MODEL_NAME,
-            contents=prompt
+            contents=request_contents
         )
 
         if not hasattr(response, 'text') or not response.text:
@@ -458,13 +495,14 @@ SQL Query:"""
         return "Error: Failed to communicate with the AI model for SQL generation."
 
 @ensure_gemini_initialized
-def get_insights_with_gemini(original_query: str, sql_query: str, results: List[Any], columns: List[str], col_types: str) -> str:
+def get_insights_with_gemini(original_query: str, sql_query: str, results: List[Any], columns: List[str], col_types: str, history: List[Dict[str, Any]]) -> str:
     """Generates insights on the data using the Gemini API."""
     if not results:
         return "No results to analyze."
 
     results_preview = json.dumps(results[:20], indent=2, default=str) # Limit results sent to Gemini
 
+    # The main prompt for this specific task
     prompt = f"""You are a data analyst assistant. A user asked the following question:
 "{original_query}"
 
@@ -488,13 +526,16 @@ Instructions:
 
 Analysis:"""
 
+    # Combine history with the new prompt
+    request_contents = history + [{"role": "user", "parts": [{"text": prompt}]}]
+
     try:
         if not gemini_client:
             return "Error: Gemini client not initialized."
 
         response = gemini_client.models.generate_content(
             model=GEMINI_MODEL_NAME,
-            contents=prompt
+            contents=request_contents
         )
         logger.info("Gemini generated insights.")
         return response.text if response.text else "No insights could be generated from the data."
@@ -503,14 +544,19 @@ Analysis:"""
         return "Error generating insights from the AI model."
 
 @ensure_gemini_initialized
-def get_conversational_response_with_gemini(user_message: str) -> str:
+def get_conversational_response_with_gemini(user_message: str, history: List[Dict[str, Any]]) -> str:
     """Gets a conversational response from Gemini for non-SQL related queries."""
     logger.info(f"Getting conversational response for: {user_message}")
+    
+    # Construct the final prompt for the API call
     prompt = f"""You are a helpful assistant. Respond conversationally and politely to the following user message. Do not attempt to generate SQL or refer to databases unless the user explicitly asks about them in this message.
 
 User Message: "{user_message}"
 
 Assistant Response:"""
+
+    # Combine history with the new prompt
+    request_contents = history + [{"role": "user", "parts": [{"text": prompt}]}]
 
     try:
         if not gemini_client:
@@ -518,7 +564,7 @@ Assistant Response:"""
             
         response = gemini_client.models.generate_content(
             model=GEMINI_MODEL_NAME,
-            contents=prompt
+            contents=request_contents
         )
         if response.prompt_feedback and response.prompt_feedback.block_reason:
              logger.warning(f"Conversational response blocked. Reason: {response.prompt_feedback.block_reason}")
@@ -531,7 +577,7 @@ Assistant Response:"""
         return "I'm having trouble responding right now. Please try again later."
 
 @ensure_gemini_initialized
-def get_error_explanation_with_gemini(original_user_query: Optional[str], failed_sql_query: str, error_message: str, schema: Optional[Dict[str, Any]] = None) -> str:
+def get_error_explanation_with_gemini(original_user_query: Optional[str], failed_sql_query: str, error_message: str, schema: Optional[Dict[str, Any]] = None, history: List[Dict[str, Any]] = []) -> str:
     """Generates a user-friendly explanation for an SQL error using Gemini."""
     prompt_context = f"User's original request (if available): \"{original_user_query}\"\n"
     if not original_user_query:
@@ -584,13 +630,16 @@ Instructions:
 
 Explanation:"""
 
+    # Combine history with the new prompt
+    request_contents = history + [{"role": "user", "parts": [{"text": prompt}]}]
+
     try:
         if not gemini_client:
             return "Error: Gemini client not initialized."
             
         response = gemini_client.models.generate_content(
             model=GEMINI_MODEL_NAME,
-            contents=prompt
+            contents=request_contents
         )
         if response.prompt_feedback and response.prompt_feedback.block_reason:
             logger.warning(f"Error explanation response blocked. Reason: {response.prompt_feedback.block_reason}")
@@ -720,6 +769,12 @@ async def get_schema():
          return JSONResponse(content={"schema": schema}, status_code=200)
     return JSONResponse(content={"schema": schema})
 
+@app.post("/reset_chat", response_class=JSONResponse)
+async def reset_chat():
+    """API endpoint to clear the server-side chat history."""
+    clear_chat_history()
+    return JSONResponse(content={"status": "success", "message": "Chat history has been reset."})
+
 @app.post("/config", response_class=JSONResponse)
 async def update_config(config_request: ConfigRequest):
     """Updates application configuration and tests connections."""
@@ -800,6 +855,7 @@ async def handle_chat(chat_request: ChatRequest):
     response_data: Dict[str, Any] = {"type": "error", "content": "An unexpected error occurred."}
     query_to_run: Optional[str] = None
     schema: Optional[Dict[str, Any]] = None 
+    history = list(chat_history_store) # Create a copy of the history for this request
 
     try:
         # Step 1: Determine the query to run, either from a /run command or by generating it.
@@ -818,19 +874,30 @@ async def handle_chat(chat_request: ChatRequest):
                 response_data = {"type": "error", "content": error_msg}
                 return JSONResponse(content=response_data)
 
-            generated_sql = generate_sql_with_gemini(user_message, schema)
+            generated_sql = generate_sql_with_gemini(user_message, schema, history)
+            model_response_text = "" # To store the response for history
 
             if generated_sql and generated_sql.strip().lower().startswith("error: this is a conversational query"):
                 logger.info("AI determined this is a conversational query. Replying with a generic message.")
-                response_data = {"type": "info", "content": get_conversational_response_with_gemini(user_message)}
+                # Pass history to the conversational model as well
+                model_response_text = get_conversational_response_with_gemini(user_message, history)
+                response_data = {"type": "info", "content": model_response_text}
+                # Add to history
+                add_to_history("user", user_message)
+                add_to_history("model", model_response_text)
                 return JSONResponse(content=jsonable_encoder(response_data))
 
             if not generated_sql or generated_sql.lower().startswith("error:"):
                 error_message = generated_sql if generated_sql else "The AI model could not generate an SQL query. Please try rephrasing."
                 response_data = {"type": "error", "content": error_message}
+                # Do not add failed SQL generations to history to avoid polluting context
                 return JSONResponse(content=response_data)
             
             query_to_run = generated_sql.strip()
+            # Store the successful user query and the generated SQL in history for context
+            add_to_history("user", user_message)
+            # The model's "response" in this case is the SQL it generated
+            add_to_history("model", query_to_run)
 
         # Step 2: Centralized security check for the determined query
         risk_level = get_query_risk_level(query_to_run)
@@ -893,7 +960,7 @@ async def handle_chat(chat_request: ChatRequest):
             original_intent = user_message if not user_message.lower().startswith("/run ") else None
             
             error_content = f"Query failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
-            ai_explanation = get_error_explanation_with_gemini(original_user_query=original_intent, failed_sql_query=query_to_run, error_message=str(db_error), schema=schema)
+            ai_explanation = get_error_explanation_with_gemini(original_user_query=original_intent, failed_sql_query=query_to_run, error_message=str(db_error), schema=schema, history=history)
             response_data = {"type": "error", "content": error_content, "ai_explanation": ai_explanation}
 
         elif status == 2: # DML/DDL Success (Should not be reached from this endpoint anymore)
@@ -903,7 +970,7 @@ async def handle_chat(chat_request: ChatRequest):
             if results is not None and columns and col_types:
                 original_user_intent = user_message
                 if user_message.lower().startswith("/run "): original_user_intent = f"Direct execution: {user_message[5:].strip()}"
-                insights = get_insights_with_gemini(original_query=original_user_intent, sql_query=query_to_run, results=results, columns=columns, col_types=col_types)
+                insights = get_insights_with_gemini(original_query=original_user_intent, sql_query=query_to_run, results=results, columns=columns, col_types=col_types, history=history)
             response_data = {"type": "result", "query": query_to_run, "columns": columns, "results": results, "insights": insights }
         else: 
             response_data = {"type": "error", "content": "Unknown query execution status."}
@@ -923,6 +990,7 @@ async def handle_confirmed_sql(request: ConfirmedExecutionRequest):
     """Executes a SQL query that has been confirmed by the user."""
     query_to_run = request.query.strip()
     response_data: Dict[str, Any] = {"type": "error", "content": "An unexpected error occurred."}
+    history = list(chat_history_store) # Create a copy for context
 
     if not query_to_run:
         response_data = {"type": "error", "content": "No query provided for execution."}
@@ -931,11 +999,14 @@ async def handle_confirmed_sql(request: ConfirmedExecutionRequest):
     try:
         logger.info(f"Executing user-confirmed query: {query_to_run}")
         results, columns, col_types, status, db_error = execute_sql_query(query_to_run)
+        
+        # Add the confirmed query to history. Assume the original user prompt is already there.
+        add_to_history("model", query_to_run)
 
         if status == 3: # SQL Error
             error_content = f"Confirmed query failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
             schema = fetch_all_tables_and_columns()
-            ai_explanation = get_error_explanation_with_gemini(original_user_query=f"User confirmed execution of the following SQL", failed_sql_query=query_to_run, error_message=str(db_error), schema=schema)
+            ai_explanation = get_error_explanation_with_gemini(original_user_query=f"User confirmed execution of the following SQL", failed_sql_query=query_to_run, error_message=str(db_error), schema=schema, history=history)
             response_data = {"type": "error", "content": error_content, "ai_explanation": ai_explanation}
         elif status == 2: # DML/DDL Success
             response_data = {"type": "info", "content": f"Query executed successfully:\n\n```sql\n{query_to_run}\n```"}
@@ -961,5 +1032,8 @@ async def handle_confirmed_sql(request: ConfirmedExecutionRequest):
 if __name__ == "__main__":
     import uvicorn
     logger.info("Starting SQL Assistant server...")
+    # Add a welcome message to the history on startup
+    clear_chat_history()
+    add_to_history("model", "Hello! I'm your SQL assistant. How can I help you with your databases today?")
     # Start the server even if Gemini API key is missing; it can be set later via /config
     uvicorn.run(app, host="0.0.0.0", port=8012)
