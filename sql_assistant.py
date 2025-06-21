@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Tuple, Optional
 import mysql.connector
 import sqlparse
 from mysql.connector import FieldType
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -14,6 +14,10 @@ from pydantic import BaseModel
 from google import genai
 from dotenv import load_dotenv
 import functools
+import uuid
+from fastapi_sessions.frontends.implementations import SessionCookie, CookieParameters
+from fastapi_sessions.backends.implementations import InMemoryBackend
+from fastapi_sessions.session_verifier import SessionVerifier
 
 # --- Configuration ---
 load_dotenv() # Load environment variables from .env file
@@ -38,33 +42,81 @@ gemini_initialized = False
 gemini_client: Optional[genai.client.Client] = None
 
 # In-memory store for chat history (a list of message dictionaries)
-chat_history_store: List[Dict[str, Any]] = []
 MAX_HISTORY_LENGTH = 20 # Max number of user/model turn pairs to keep
 
 # Path to .env file
 ENV_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 
-# --- Chat History Management ---
+# --- Session Management Setup ---
+class SessionData(BaseModel):
+    history: List[Dict[str, Any]] = []
 
-def add_to_history(role: str, text: str):
-    """
-    Adds a message to the chat history and truncates it if it's too long.
-    Args:
-        role: 'user' or 'model'.
-        text: The content of the message.
-    """
-    global chat_history_store
-    
-    # The Gemini API expects a specific format for history.
-    # Each entry is a dict with 'role' and 'parts'.
-    chat_history_store.append({"role": role, "parts": [{"text": text}]})
+cookie_params = CookieParameters()
 
-    # Keep the history from getting too long to save tokens.
-    # We remove the oldest entries (2 at a time, one user + one model).
-    if len(chat_history_store) > MAX_HISTORY_LENGTH * 2:
-        # Remove the first two items (the oldest user/model pair)
-        chat_history_store = chat_history_store[2:]
-        logger.info(f"Chat history truncated. Current length: {len(chat_history_store)}")
+# Uses UUID
+cookie = SessionCookie(
+    cookie_name="session_id",
+    identifier="general_verifier",
+    auto_error=True,
+    secret_key=str(uuid.uuid4()), # Should be kept secret in production
+    cookie_params=cookie_params,
+)
+
+session_backend = InMemoryBackend[uuid.UUID, SessionData]()
+
+class SessionManager(SessionVerifier[uuid.UUID, SessionData]):
+    def __init__(
+        self,
+        *,
+        identifier: str,
+        auto_error: bool,
+        backend: InMemoryBackend[uuid.UUID, SessionData],
+        auth_http_exception: HTTPException,
+    ):
+        self._identifier = identifier
+        self._auto_error = auto_error
+        self._backend = backend
+        self._auth_http_exception = auth_http_exception
+
+    @property
+    def identifier(self):
+        return self._identifier
+
+    @property
+    def backend(self):
+        return self._backend
+
+    @property
+    def auto_error(self):
+        return self._auto_error
+
+    @property
+    def auth_http_exception(self):
+        return self._auth_http_exception
+
+    def verify_session(self, model: SessionData) -> bool:
+        """If the session exists, it is valid"""
+        return True
+
+session_verifier = SessionManager(
+    identifier="general_verifier",
+    auto_error=True,
+    backend=session_backend,
+    auth_http_exception=HTTPException(status_code=403, detail="Invalid session"),
+)
+
+# --- Chat History Management (Now operates on a session) ---
+
+def add_to_history(session_data: SessionData, role: str, text: str):
+    """
+    Adds a message to the chat history for a given session and truncates it.
+    """
+    session_data.history.append({"role": role, "parts": [{"text": text}]})
+
+    # Truncate history if it becomes too long
+    if len(session_data.history) > MAX_HISTORY_LENGTH * 2:
+        session_data.history = session_data.history[2:]
+        logger.info(f"Chat history truncated. New length: {len(session_data.history)}")
 
 def clear_chat_history():
     """Clears the global chat history."""
@@ -747,8 +799,22 @@ templates = Jinja2Templates(directory=".") # Expect index.html in the root direc
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    """Serves the main HTML page."""
-    return templates.TemplateResponse("index.html", {"request": request})
+    """
+    Serves the main HTML page and ensures a session cookie is set
+    for the first-time visitor.
+    """
+    response = templates.TemplateResponse("index.html", {"request": request})
+
+    # If no session cookie is present on the incoming request, create one.
+    if "session_id" not in request.cookies:
+        session_id = uuid.uuid4()
+        initial_data = SessionData()
+        # Add the welcome message to the history for this new session
+        add_to_history(initial_data, "model", "Hello! I'm your SQL assistant. How can I help you with your databases today?")
+        await session_backend.create(session_id, initial_data)
+        cookie.attach_to_response(response, session_id)
+
+    return response
 
 @app.get("/config_status", response_model=PublicConfig)
 async def get_config_status():
@@ -770,9 +836,13 @@ async def get_schema():
     return JSONResponse(content={"schema": schema})
 
 @app.post("/reset_chat", response_class=JSONResponse)
-async def reset_chat():
-    """API endpoint to clear the server-side chat history."""
-    clear_chat_history()
+async def reset_chat(session_id: uuid.UUID = Depends(cookie)):
+    """API endpoint to clear the server-side chat history for the current session."""
+    # Create a new, empty session data object
+    new_session_data = SessionData()
+    # Replace the old session data with the new empty one
+    await session_backend.update(session_id, new_session_data)
+    logger.info(f"Chat history for session {session_id} has been reset.")
     return JSONResponse(content={"status": "success", "message": "Chat history has been reset."})
 
 @app.post("/config", response_class=JSONResponse)
@@ -849,13 +919,15 @@ async def update_config(config_request: ConfigRequest):
         )
 
 @app.post("/chat", response_class=JSONResponse)
-async def handle_chat(chat_request: ChatRequest):
+async def handle_chat(chat_request: ChatRequest, session_id: uuid.UUID = Depends(cookie), session_data: SessionData = Depends(session_verifier)):
     """Handles user messages, directs to SQL generation or conversational response, and executes SQL."""
     user_message = chat_request.message.strip()
     response_data: Dict[str, Any] = {"type": "error", "content": "An unexpected error occurred."}
     query_to_run: Optional[str] = None
     schema: Optional[Dict[str, Any]] = None 
-    history = list(chat_history_store) # Create a copy of the history for this request
+    
+    # Use a copy of the session history for this request to avoid modifying it mid-process
+    history = list(session_data.history)
 
     try:
         # Step 1: Determine the query to run, either from a /run command or by generating it.
@@ -875,29 +947,27 @@ async def handle_chat(chat_request: ChatRequest):
                 return JSONResponse(content=response_data)
 
             generated_sql = generate_sql_with_gemini(user_message, schema, history)
-            model_response_text = "" # To store the response for history
+            model_response_text = ""
 
             if generated_sql and generated_sql.strip().lower().startswith("error: this is a conversational query"):
                 logger.info("AI determined this is a conversational query. Replying with a generic message.")
-                # Pass history to the conversational model as well
                 model_response_text = get_conversational_response_with_gemini(user_message, history)
                 response_data = {"type": "info", "content": model_response_text}
-                # Add to history
-                add_to_history("user", user_message)
-                add_to_history("model", model_response_text)
+                
+                # CORRECTED LOGIC: Add to history only on success
+                add_to_history(session_data, "user", user_message)
+                add_to_history(session_data, "model", model_response_text)
+                await session_backend.update(session_id, session_data) # Persist the change
+
                 return JSONResponse(content=jsonable_encoder(response_data))
 
             if not generated_sql or generated_sql.lower().startswith("error:"):
                 error_message = generated_sql if generated_sql else "The AI model could not generate an SQL query. Please try rephrasing."
                 response_data = {"type": "error", "content": error_message}
-                # Do not add failed SQL generations to history to avoid polluting context
                 return JSONResponse(content=response_data)
             
             query_to_run = generated_sql.strip()
-            # Store the successful user query and the generated SQL in history for context
-            add_to_history("user", user_message)
-            # The model's "response" in this case is the SQL it generated
-            add_to_history("model", query_to_run)
+            # DO NOT add to history here yet. Wait for execution result.
 
         # Step 2: Centralized security check for the determined query
         risk_level = get_query_risk_level(query_to_run)
@@ -962,16 +1032,28 @@ async def handle_chat(chat_request: ChatRequest):
             error_content = f"Query failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
             ai_explanation = get_error_explanation_with_gemini(original_user_query=original_intent, failed_sql_query=query_to_run, error_message=str(db_error), schema=schema, history=history)
             response_data = {"type": "error", "content": error_content, "ai_explanation": ai_explanation}
+            # FAILED, so we don't add to history.
 
         elif status == 2: # DML/DDL Success (Should not be reached from this endpoint anymore)
             response_data = {"type": "info", "content": f"Query executed successfully:\n\n```sql\n{query_to_run}\n```"}
         elif status == 1: # SELECT/SHOW Success
             insights = ""
+            # CORRECTED LOGIC: Add user message and generated SQL to history now.
+            add_to_history(session_data, "user", user_message)
+            add_to_history(session_data, "model", query_to_run)
+
             if results is not None and columns and col_types:
                 original_user_intent = user_message
                 if user_message.lower().startswith("/run "): original_user_intent = f"Direct execution: {user_message[5:].strip()}"
                 insights = get_insights_with_gemini(original_query=original_user_intent, sql_query=query_to_run, results=results, columns=columns, col_types=col_types, history=history)
             response_data = {"type": "result", "query": query_to_run, "columns": columns, "results": results, "insights": insights }
+            
+            # If insights were generated, add them as a separate model response for better context
+            if insights:
+                add_to_history(session_data, "model", insights)
+            
+            await session_backend.update(session_id, session_data) # Persist changes
+
         else: 
             response_data = {"type": "error", "content": "Unknown query execution status."}
 
@@ -986,11 +1068,11 @@ async def handle_chat(chat_request: ChatRequest):
         return JSONResponse(content=response_data, status_code=500)
 
 @app.post("/execute_confirmed_sql", response_class=JSONResponse)
-async def handle_confirmed_sql(request: ConfirmedExecutionRequest):
+async def handle_confirmed_sql(request: ConfirmedExecutionRequest, session_id: uuid.UUID = Depends(cookie), session_data: SessionData = Depends(session_verifier)):
     """Executes a SQL query that has been confirmed by the user."""
     query_to_run = request.query.strip()
     response_data: Dict[str, Any] = {"type": "error", "content": "An unexpected error occurred."}
-    history = list(chat_history_store) # Create a copy for context
+    history = list(session_data.history)
 
     if not query_to_run:
         response_data = {"type": "error", "content": "No query provided for execution."}
@@ -1000,9 +1082,6 @@ async def handle_confirmed_sql(request: ConfirmedExecutionRequest):
         logger.info(f"Executing user-confirmed query: {query_to_run}")
         results, columns, col_types, status, db_error = execute_sql_query(query_to_run)
         
-        # Add the confirmed query to history. Assume the original user prompt is already there.
-        add_to_history("model", query_to_run)
-
         if status == 3: # SQL Error
             error_content = f"Confirmed query failed to execute:\n```sql\n{query_to_run}\n```\nError: {db_error or 'Unknown SQL execution error.'}"
             schema = fetch_all_tables_and_columns()
@@ -1010,6 +1089,10 @@ async def handle_confirmed_sql(request: ConfirmedExecutionRequest):
             response_data = {"type": "error", "content": error_content, "ai_explanation": ai_explanation}
         elif status == 2: # DML/DDL Success
             response_data = {"type": "info", "content": f"Query executed successfully:\n\n```sql\n{query_to_run}\n```"}
+            # CORRECTED LOGIC: Add successful DML query to history
+            add_to_history(session_data, "model", query_to_run) # The user prompt is already in history
+            await session_backend.update(session_id, session_data)
+
         elif status == 1: # SELECT/SHOW Success (less likely for confirmed DML/DDL, but handle robustly)
             response_data = {
                 "type": "result", 
@@ -1018,6 +1101,9 @@ async def handle_confirmed_sql(request: ConfirmedExecutionRequest):
                 "results": results,
                 "insights": "Query executed. Insights are typically generated for natural language queries leading to SELECT."
             }
+            # CORRECTED LOGIC: Also add this to history
+            add_to_history(session_data, "model", query_to_run)
+            await session_backend.update(session_id, session_data)
         else: 
             response_data = {"type": "error", "content": "Unknown query execution status."}
 
@@ -1028,12 +1114,27 @@ async def handle_confirmed_sql(request: ConfirmedExecutionRequest):
         response_data = {"type": "error", "content": f"An internal server error occurred: {e}"}
         return JSONResponse(content=response_data, status_code=500)
 
+@app.on_event("startup")
+async def startup_event():
+    """Initializes a new session for the root endpoint, as it won't have a cookie yet."""
+    # This is a workaround to ensure the very first visit gets a session.
+    session_id = uuid.uuid4()
+    initial_data = SessionData()
+    # Pre-populate the first session with a welcome message
+    add_to_history(initial_data, "model", "Hello! I'm your SQL assistant. How can I help you with your databases today?")
+    await session_backend.create(session_id, initial_data)
+    # The frontend will receive this session_id via the response from "/"
+    
+    # We need a way to pass this to the root response. A simple global might suffice for this narrow case.
+    # A better approach might involve a middleware that creates sessions if they don't exist.
+    app.state.initial_session_id = session_id
+
 # --- Main Execution ---
 if __name__ == "__main__":
     import uvicorn
     logger.info("Starting SQL Assistant server...")
-    # Add a welcome message to the history on startup
-    clear_chat_history()
-    add_to_history("model", "Hello! I'm your SQL assistant. How can I help you with your databases today?")
+    # Add a welcome message to the history on startup - REMOVED
+    # clear_chat_history() - REMOVED
+    # add_to_history("model", "Hello! I'm your SQL assistant. How can I help you with your databases today?") - REMOVED
     # Start the server even if Gemini API key is missing; it can be set later via /config
     uvicorn.run(app, host="0.0.0.0", port=8012)

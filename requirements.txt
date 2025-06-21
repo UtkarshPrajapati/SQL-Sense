@@ -6,3 +6,4 @@ mysql-connector-python
 sqlparse
 Jinja2
 pydantic
+fastapi-sessions
