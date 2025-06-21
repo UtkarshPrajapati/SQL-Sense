@@ -35,6 +35,7 @@ MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "SQLLLM")
 # Gemini API Configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL_NAME = "gemini-2.5-flash-lite-preview-06-17"
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", str(uuid.uuid4()))
 
 # Variable to track if Gemini API is initialized
 gemini_initialized = False
@@ -58,7 +59,7 @@ cookie = SessionCookie(
     cookie_name="session_id",
     identifier="general_verifier",
     auto_error=True,
-    secret_key=str(uuid.uuid4()), # Should be kept secret in production
+    secret_key=SESSION_SECRET_KEY, 
     cookie_params=cookie_params,
 )
 
@@ -201,14 +202,15 @@ def update_environment(config_data):
 # Function to update .env file
 def update_env_file(): # Removed config_data and defaults parameters
     """Updates .env file with the current global configuration values."""
-    global MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE, GEMINI_API_KEY
+    global MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE, GEMINI_API_KEY, SESSION_SECRET_KEY
     try:
         env_values_to_write = {
             "MYSQL_HOST": MYSQL_HOST,
             "MYSQL_USER": MYSQL_USER,
             "MYSQL_PASSWORD": MYSQL_PASSWORD,
             "MYSQL_DATABASE": MYSQL_DATABASE,
-            "GEMINI_API_KEY": GEMINI_API_KEY
+            "GEMINI_API_KEY": GEMINI_API_KEY,
+            "SESSION_SECRET_KEY": SESSION_SECRET_KEY
         }
 
         if not os.path.exists(ENV_FILE_PATH):
@@ -809,8 +811,8 @@ async def read_root(request: Request):
     if "session_id" not in request.cookies:
         session_id = uuid.uuid4()
         initial_data = SessionData()
-        # Add the welcome message to the history for this new session
-        add_to_history(initial_data, "model", "Hello! I'm your SQL assistant. How can I help you with your databases today?")
+        # Add the welcome message to the history for this new session - REMOVED
+        # add_to_history(initial_data, "model", "Hello! I'm your SQL assistant. How can I help you with your databases today?")
         await session_backend.create(session_id, initial_data)
         cookie.attach_to_response(response, session_id)
 
@@ -1120,8 +1122,8 @@ async def startup_event():
     # This is a workaround to ensure the very first visit gets a session.
     session_id = uuid.uuid4()
     initial_data = SessionData()
-    # Pre-populate the first session with a welcome message
-    add_to_history(initial_data, "model", "Hello! I'm your SQL assistant. How can I help you with your databases today?")
+    # Pre-populate the first session with a welcome message - REMOVED
+    # add_to_history(initial_data, "model", "Hello! I'm your SQL assistant. How can I help you with your databases today?")
     await session_backend.create(session_id, initial_data)
     # The frontend will receive this session_id via the response from "/"
     
