@@ -874,7 +874,7 @@
 
                         runButton.addEventListener('click', () => {
                             showRunCommandTag();
-                            messageInput.value = query;
+                            messageInput.value = query.replace(/\n/g, ' ');
                             messageInput.focus();
                         });
 
@@ -1846,7 +1846,7 @@
 
                         runButton.addEventListener('click', () => {
                             showRunCommandTag();
-                            messageInput.value = query;
+                            messageInput.value = query.replace(/\n/g, ' ');
                             messageInput.focus();
                         });
 
