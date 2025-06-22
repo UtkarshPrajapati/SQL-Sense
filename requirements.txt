@@ -7,3 +7,6 @@ sqlparse
 Jinja2
 pydantic
 fastapi-sessions
+pytest
+pytest-asyncio
+httpx
