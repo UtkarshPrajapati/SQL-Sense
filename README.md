@@ -46,7 +46,7 @@ Traditional SQL clients are great at running queries—but they assume you alrea
 -   **💡 AI-Powered Troubleshooting:** When a query fails, the AI provides a plain-English explanation of the error and suggests a fix based on your database schema.
 -   **🛡️ Advanced Security:** Intercepts potentially harmful queries. Data-modifying queries (e.g., `UPDATE`, `INSERT`) require user confirmation, while structure-altering queries (e.g., `DROP`, `ALTER`) are blocked entirely.
 -   **👁️ Dynamic Schema Viewer:** An interactive, collapsible sidebar displays your database schemas, tables, and columns in real-time.
--   **⚡ Interactive Querying:** Click-to-run buttons appear on suggested SQL code blocks, allowing for one-click execution right from the chat.
+-   **⚡ Interactive Querying:** Inline *Run Query* buttons appear next to SQL code blocks, allowing one-click execution without obscuring the query text.
 -   **⚙️ On-the-Fly Configuration:** Update database credentials and API keys from the UI without needing to restart the server. Your settings are securely saved in a local `.env` file.
 -   **💬 Session-Based History:** Chat history is tied to your browser session, providing a persistent and private workspace. Start a new chat anytime.
 -   **🎨 Modern Material UI:** A sleek, responsive, and user-friendly chat UI built with TailwindCSS and inspired by Material Design, featuring toast notifications and a seamless user experience.
