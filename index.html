@@ -683,6 +683,17 @@
             width: 100%;
             text-overflow: ellipsis; /* Prevent long text content from expanding the input */
         }
+
+        /* Slide-out animation */
+        @keyframes schemaSlideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
+        #schema-display.closing {
+            display: block; /* keep it in flow while animating */
+            animation: schemaSlideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
     </style>
     <script>
         // JS to fix 100vh issue on mobile browsers
@@ -1649,7 +1660,15 @@
                    fetchSchema();
                 }
             } else {
+                // Start slide-out animation then hide panel after it finishes
                 schemaDisplay.classList.remove('open');
+                schemaDisplay.classList.add('closing');
+                schemaText.textContent = 'View Schema';
+
+                // After animation ends remove the closing class so CSS display:none takes over
+                setTimeout(() => {
+                    schemaDisplay.classList.remove('closing');
+                }, 300);
                 // REMOVED: No longer resetting the margin
                 // chatArea.style.marginRight = '0';
                 schemaText.textContent = 'View Schema';
