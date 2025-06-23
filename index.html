@@ -663,11 +663,14 @@
 
         /* --- ADDED: Styles for the Run Query button wrapper --- */
         .code-block-wrapper {
-            position: relative;
+            display: flex;
+            align-items: flex-start;
         }
         .code-block-wrapper pre {
             /* Ensure code block doesn't overflow layout */
+            flex: 1 1 auto;
             overflow-x: auto;
+            margin: 0; /* remove default margins */
         }
 
         /* ADDED: Prevent input from overflowing its container */
@@ -693,6 +696,24 @@
         #schema-display.closing {
             display: block; /* keep it in flow while animating */
             animation: schemaSlideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        /* Styles for inline Run Query button */
+        .run-query-btn {
+            flex: 0 0 auto;
+            margin-left: 0.5rem; /* Space from code block */
+            background-color: var(--md-accent-color);
+            color: #fff;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            display: inline-flex;
+            align-items: center;
+            transition: background-color 0.15s ease-in-out;
+        }
+        .run-query-btn:hover {
+            background-color: var(--md-primary-color);
         }
     </style>
     <script>
@@ -935,8 +956,7 @@
                         wrapper.className = 'relative'; // No longer need 'group' for hover
 
                         const runButton = document.createElement('button');
-                        runButton.className = 'absolute top-2 right-2 text-white text-xs font-semibold py-1 px-2 rounded-md transition-all flex items-center justify-center';
-                        runButton.style.backgroundColor = 'var(--md-accent-color)';
+                        runButton.className = 'run-query-btn';
                         runButton.innerHTML = `<i data-lucide="play" class="h-3 w-3 inline-block mr-1 -ml-1"></i> Run Query`;
                         
                         runButton.addEventListener('mouseover', () => runButton.style.backgroundColor = 'var(--md-primary-color)');
@@ -1923,8 +1943,7 @@
                         wrapper.className = 'relative'; // No longer need 'group' for hover
 
                         const runButton = document.createElement('button');
-                        runButton.className = 'absolute top-2 right-2 text-white text-xs font-semibold py-1 px-2 rounded-md transition-all flex items-center justify-center';
-                        runButton.style.backgroundColor = 'var(--md-accent-color)';
+                        runButton.className = 'run-query-btn';
                         runButton.innerHTML = `<i data-lucide="play" class="h-3 w-3 inline-block mr-1 -ml-1"></i> Run Query`;
                         
                         runButton.addEventListener('mouseover', () => runButton.style.backgroundColor = 'var(--md-primary-color)');
