@@ -1019,7 +1019,9 @@
 
                 }, animationDuration);
 
-                messageInput.focus();
+                if (window.innerWidth > 768) { // Only auto-focus on larger screens
+                    messageInput.focus({ preventScroll: true });
+                }
             }
         }
 
