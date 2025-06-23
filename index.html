@@ -29,6 +29,9 @@
             font-family: 'Roboto', sans-serif; /* Material Design uses Roboto */
             background-color: var(--md-background-color);
             color: var(--md-text-primary-on-background);
+            /* Prevent any horizontal overflow from expanding the page width */
+            max-width: 100vw;
+            overflow-x: hidden;
         }
         /* Import Roboto font (add to <head> if not already - this is a CSS import) */
         @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
@@ -463,6 +466,7 @@
             display: flex;
             flex: 1;
             overflow: hidden; /* Important for child flex items */
+            overflow-x: hidden; /* Prevent horizontal scroll glitches */
             position: relative; /* ADDED: For absolute positioning of the schema sidebar */
         }
 
@@ -475,36 +479,29 @@
             transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* ADDED: Smooth margin adjustment */
         }
 
+        /* --- Redesigned schema overlay to avoid mobile overflow --- */
         #schema-display {
-            width: 320px; /* MODIFIED: Fixed width */
-            position: absolute; /* MODIFIED: Position relative to main-content-wrapper */
+            width: 320px;
+            position: absolute;
             right: 0;
             top: 0;
             bottom: 0;
             background-color: var(--md-surface-color);
             border-left: 1px solid var(--md-border-color);
             overflow-y: auto;
-            padding: 1rem; /* ADDED: Consistent padding, always applied */
-
-            opacity: 0; /* Initially transparent */
-            transform: translateX(100%); /* MODIFIED: Initially off-screen to the right */
-            visibility: hidden; /* MODIFIED: Hidden and not interactive initially */
-            /* MODIFIED: Transition for transform, opacity, and visibility handling */
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-                        opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                        visibility 0s linear 0.3s; /* Delay hiding until after transform */
-            z-index: 50; /* ADDED: Ensure it's above chat but below modals/config */
-            /* Removed: flex-shrink, height (implicit from top/bottom/absolute), previous transition, position:static, max-height:none */
+            padding: 1rem;
+            display: none; /* Hidden by default – prevents it from contributing to page width */
+            z-index: 50;
         }
 
         #schema-display.open {
-            opacity: 1;
-            transform: translateX(0%); /* MODIFIED: Slide in */
-            visibility: visible;
-            /* MODIFIED: Transition for opening, no visibility delay */
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-                        opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            /* Removed: width, padding (now in base style) */
+            display: block; /* Show when open */
+            animation: schemaSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes schemaSlideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
         
         #schema-display-header {
@@ -662,6 +659,29 @@
         }
         #close-config-btn:hover {
             background-color: rgba(0,0,0,0.08);
+        }
+
+        /* --- ADDED: Styles for the Run Query button wrapper --- */
+        .code-block-wrapper {
+            position: relative;
+        }
+        .code-block-wrapper pre {
+            /* Ensure code block doesn't overflow layout */
+            overflow-x: auto;
+        }
+
+        /* ADDED: Prevent input from overflowing its container */
+        #input-wrapper,
+        #message-input {
+            min-width: 0;
+            max-width: 100%;
+            overflow-x: hidden; /* prevent them from causing horizontal expansion */
+        }
+
+        #message-input {
+            flex: 1 1 auto; /* ensure it can shrink */
+            width: 100%;
+            text-overflow: ellipsis; /* Prevent long text content from expanding the input */
         }
     </style>
     <script>
@@ -915,6 +935,8 @@
                             showRunCommandTag();
                             messageInput.value = query.replace(/\n/g, ' ');
                             messageInput.focus();
+                            // ADDED: Force a repaint to fix mobile overflow bug
+                            forceLayoutRepaint();
                         });
 
                         // Replace the original <pre> with the wrapper containing the <pre> and the button
@@ -1591,9 +1613,10 @@
 
             if (!isOpen) { // Schema is opening
                 schemaDisplay.classList.add('open');
-                if (window.innerWidth > 768) {
-                    chatArea.style.marginRight = '320px'; // Make space for sidebar (width of sidebar)
-                }
+                // REMOVED: No longer shifting the main content
+                // if (window.innerWidth > 768) {
+                //     chatArea.style.marginRight = '320px'; 
+                // }
                 schemaText.textContent = 'Hide Schema';
 
                 // Animate out dbIcon
@@ -1627,7 +1650,8 @@
                 }
             } else {
                 schemaDisplay.classList.remove('open');
-                chatArea.style.marginRight = '0';
+                // REMOVED: No longer resetting the margin
+                // chatArea.style.marginRight = '0';
                 schemaText.textContent = 'View Schema';
 
                 // Animate out upIcon
@@ -1891,6 +1915,8 @@
                             showRunCommandTag();
                             messageInput.value = query.replace(/\n/g, ' ');
                             messageInput.focus();
+                            // ADDED: Force a repaint to fix mobile overflow bug
+                            forceLayoutRepaint();
                         });
 
                         // Replace the original <pre> with the wrapper containing the <pre> and the button
@@ -1941,6 +1967,26 @@
         newChatBtn.addEventListener('click', () => {
             resetChat();
         });
+
+        function forceLayoutRepaint() {
+            // This is a workaround for a stubborn mobile rendering bug.
+            // Based on user feedback, programmatically clicking the schema toggle button twice
+            // reliably fixes the layout. This function automates that exact sequence.
+            console.log("Forcing layout repaint by programmatically clicking schema button twice...");
+            const schemaBtn = document.getElementById('schema-toggle-btn');
+            
+            if (schemaBtn) {
+                schemaBtn.click(); // First click (opens the panel)
+                schemaBtn.click(); // Second click (closes the panel)
+            }
+        }
+
+        function addWelcomeMessage() {
+            const welcomeHtml = `<div class="p-3 rounded-lg bg-blue-100 text-blue-800 max-w-xl mr-auto">
+                    <p class="text-sm">Hello! Ask me something about the data (e.g., "Show me all employees in HR") or run a specific query using <code class="bg-blue-200 px-1 rounded">/run SELECT * FROM your_table LIMIT 10;</code>.</p>
+                </div>`;
+            chatHistory.innerHTML = welcomeHtml; // Use innerHTML to replace content
+        }
 
     </script>
 </body>
