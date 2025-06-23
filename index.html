@@ -605,6 +605,13 @@
             transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1); /* Increased from 0.3s */
         }
 
+        /* ADDED: Responsive behavior for schema sidebar on mobile */
+        @media (max-width: 768px) {
+            #schema-display.open {
+                width: 100%;
+            }
+        }
+
         /* ADDED: Responsive styles for header */
         @media (max-width: 560px) {
             .btn-text {
@@ -1584,7 +1591,9 @@
 
             if (!isOpen) { // Schema is opening
                 schemaDisplay.classList.add('open');
-                chatArea.style.marginRight = '320px'; // ADDED: Make space for sidebar (width of sidebar)
+                if (window.innerWidth > 768) {
+                    chatArea.style.marginRight = '320px'; // Make space for sidebar (width of sidebar)
+                }
                 schemaText.textContent = 'Hide Schema';
 
                 // Animate out dbIcon
