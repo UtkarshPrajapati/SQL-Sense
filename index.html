@@ -605,6 +605,23 @@
             transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1); /* Increased from 0.3s */
         }
 
+        /* ADDED: Responsive styles for header */
+        @media (max-width: 560px) {
+            .btn-text {
+                display: none;
+            }
+            .header-btn {
+                padding-left: 0.5rem; /* 8px */
+                padding-right: 0.5rem; /* 8px */
+            }
+            .header-btn .btn-icon {
+                margin-right: 0 !important;
+            }
+            #header-link {
+                font-size: 1.125rem; /* from 1.25rem (text-xl) */
+            }
+        }
+
         /* ADDED: Styles for header buttons to give them elevation */
         #config-toggle-btn, #schema-toggle-btn, #new-chat-btn {
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -640,25 +657,40 @@
             background-color: rgba(0,0,0,0.08);
         }
     </style>
+    <script>
+        // JS to fix 100vh issue on mobile browsers
+        function setAppHeight() {
+            const doc = document.documentElement;
+            doc.style.setProperty('--app-height', `${window.innerHeight}px`);
+        }
+        window.addEventListener('resize', setAppHeight);
+        document.addEventListener('DOMContentLoaded', setAppHeight);
+    </script>
 </head>
-<body class="bg-gray-100 font-sans flex flex-col h-screen">
+<body class="bg-gray-100 font-sans flex flex-col" style="height: var(--app-height, 100vh);">
 
-    <header class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-4 shadow-md flex justify-between items-center">
+    <header class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-4 shadow-md flex justify-between items-center z-20">
         <a href="/" id="header-link" class="text-xl font-bold flex items-center">
             <img id="header-db-icon" src="/static/DataFlow.png" alt="DataFlow Logo" class="mr-2 h-9 w-9" style="filter: brightness(0) invert(1);">
-            DataFlow
+            <span id="header-title-text">DataFlow</span>
         </a>
         <div class="flex items-center space-x-3">
-            <button id="new-chat-btn" class="bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg text-sm flex items-center shadow">
-                <i data-lucide="plus-circle" class="mr-1 h-4 w-4 text-indigo-600"></i> New Chat
+            <button id="new-chat-btn" class="header-btn bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg text-sm flex items-center shadow">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon mr-1 h-4 w-4 text-indigo-600"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                <span class="btn-text">New Chat</span>
             </button>
-            <button id="config-toggle-btn" class="bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg text-sm flex items-center shadow">
-                <i id="settings-icon" data-lucide="settings" class="mr-1 h-4 w-4 text-indigo-600"></i> Config
+            <button id="config-toggle-btn" class="header-btn bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg text-sm flex items-center shadow">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon mr-1 h-4 w-4 text-indigo-600" id="settings-icon"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                <span class="btn-text">Config</span>
             </button>
-            <button id="schema-toggle-btn" class="bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg text-sm flex items-center shadow">
-                <span id="schema-db-icon" class="mr-1"><i data-lucide="database" class="h-4 w-4 text-indigo-600"></i></span>
-                <span id="schema-up-icon" class="mr-1 hidden"><i data-lucide="chevron-right" class="h-4 w-4 text-indigo-600"></i></span>
-                <span id="schema-text">View Schema</span>
+            <button id="schema-toggle-btn" class="header-btn bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg text-sm flex items-center shadow">
+                <span id="schema-db-icon" class="btn-icon mr-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-indigo-600"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                </span>
+                <span id="schema-up-icon" class="btn-icon mr-1 hidden">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-indigo-600"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </span>
+                <span id="schema-text" class="btn-text">View Schema</span>
             </button>
         </div>
     </header>
@@ -715,14 +747,14 @@
     <!-- Main Content Area: Chat + Schema Sidebar -->
     <div id="main-content-wrapper" class="flex flex-1 overflow-hidden">
 
-        <main id="chat-area" class="flex-1 overflow-hidden p-4 flex flex-col">
-            <div id="chat-history" class="flex-1 overflow-y-auto mb-4 space-y-4 p-4 bg-white rounded-lg shadow">
+        <main id="chat-area" class="flex-1 flex flex-col overflow-hidden">
+            <div id="chat-history" class="flex-1 overflow-y-auto space-y-4 p-4">
                 <div class="p-3 rounded-lg bg-blue-100 text-blue-800 max-w-xl mr-auto">
                     <p class="text-sm">Hello! Ask me something about the data (e.g., "Show me all employees in HR") or run a specific query using <code class="bg-blue-200 px-1 rounded">/run SELECT * FROM your_table LIMIT 10;</code>.</p>
                 </div>
             </div>
 
-            <div class="mt-auto p-4 bg-white rounded-lg shadow relative">
+            <div class="p-4 bg-white border-t border-gray-200 relative">
                 <div id="slash-command-popup" class="absolute bottom-full left-0 mb-1 w-auto bg-white border border-gray-300 rounded-md shadow-lg z-20 hidden">
                     <!-- Suggestions will be added here by JS -->
                 </div>

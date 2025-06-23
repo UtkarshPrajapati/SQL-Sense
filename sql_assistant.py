@@ -1164,4 +1164,4 @@ if __name__ == "__main__":
     # clear_chat_history() - REMOVED
     # add_to_history("model", "Hello! I'm your SQL assistant. How can I help you with your databases today?") - REMOVED
     # Start the server even if Gemini API key is missing; it can be set later via /config
-    uvicorn.run(app, port=6969)
+    uvicorn.run(app,host="0.0.0.0", port=6969)
