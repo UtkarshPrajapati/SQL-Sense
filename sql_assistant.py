@@ -18,6 +18,7 @@ import uuid
 from fastapi_sessions.frontends.implementations import SessionCookie, CookieParameters
 from fastapi_sessions.backends.implementations import InMemoryBackend
 from fastapi_sessions.session_verifier import SessionVerifier
+from contextlib import asynccontextmanager
 
 # --- Configuration ---
 load_dotenv() # Load environment variables from .env file
@@ -793,7 +794,29 @@ class ConfirmedExecutionRequest(BaseModel):
 
 # --- FastAPI Application ---
 
-app = FastAPI(title="SQL Assistant with Gemini")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Manages application startup and shutdown events.
+    On startup, it initializes a new session for the root endpoint,
+    as it won't have a cookie yet. This is a workaround to ensure
+    the very first visit gets a session.
+    """
+    # This is a workaround to ensure the very first visit gets a session.
+    session_id = uuid.uuid4()
+    initial_data = SessionData()
+    # Pre-populate the first session with a welcome message - REMOVED
+    # add_to_history(initial_data, "model", "Hello! I'm your SQL assistant. How can I help you with your databases today?") - REMOVED
+    await session_backend.create(session_id, initial_data)
+    # The frontend will receive this session_id via the response from "/"
+    
+    # We need a way to pass this to the root response. A simple global might suffice for this narrow case.
+    # A better approach might involve a middleware that creates sessions if they don't exist.
+    app.state.initial_session_id = session_id
+    yield
+    # No shutdown logic needed for now
+
+app = FastAPI(title="SQL Assistant with Gemini", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory=".") # Expect index.html in the root directory
 
@@ -1132,21 +1155,6 @@ async def handle_confirmed_sql(request: ConfirmedExecutionRequest, session_id: u
         logger.critical(f"Unhandled error in /execute_confirmed_sql endpoint: {e}", exc_info=True)
         response_data = {"type": "error", "content": f"An internal server error occurred: {e}"}
         return JSONResponse(content=response_data, status_code=500)
-
-@app.on_event("startup")
-async def startup_event():
-    """Initializes a new session for the root endpoint, as it won't have a cookie yet."""
-    # This is a workaround to ensure the very first visit gets a session.
-    session_id = uuid.uuid4()
-    initial_data = SessionData()
-    # Pre-populate the first session with a welcome message - REMOVED
-    # add_to_history(initial_data, "model", "Hello! I'm your SQL assistant. How can I help you with your databases today?") - REMOVED
-    await session_backend.create(session_id, initial_data)
-    # The frontend will receive this session_id via the response from "/"
-    
-    # We need a way to pass this to the root response. A simple global might suffice for this narrow case.
-    # A better approach might involve a middleware that creates sessions if they don't exist.
-    app.state.initial_session_id = session_id
 
 # --- Main Execution ---
 if __name__ == "__main__":
