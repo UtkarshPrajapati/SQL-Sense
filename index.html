@@ -813,6 +813,11 @@
                 </div>
             </div>
 
+            <!-- Go-to-bottom floating button (added) -->
+            <button id="scroll-bottom-btn" title="Scroll to latest" class="hidden absolute left-1/2 transform -translate-x-1/2 bottom-24 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 shadow-lg focus:outline-none">
+                <i data-lucide="chevron-down" class="h-5 w-5"></i>
+            </button>
+
             <div class="p-4 bg-white border-t border-gray-200 relative">
                 <div id="slash-command-popup" class="absolute bottom-full left-0 mb-1 w-auto bg-white border border-gray-300 rounded-md shadow-lg z-20 hidden">
                     <!-- Suggestions will be added here by JS -->
@@ -982,7 +987,10 @@
             // --- END ADDED LOGIC ---
 
             chatHistory.appendChild(messageDiv);
-            chatHistory.scrollTop = chatHistory.scrollHeight; // Scroll to bottom
+            // Conditionally auto-scroll only if the user was already near the bottom
+            if (isChatScrolledToBottom()) {
+                scrollChatToBottom();
+            }
 
             // ADDED: Call lucide.createIcons() AFTER the message is appended to the DOM
             if (sender === 'assistant') {
@@ -1293,36 +1301,53 @@
 
             messageDiv.innerHTML = htmlContent;
             chatHistory.appendChild(messageDiv);
+            // Restore event listeners for the Execute / Cancel buttons
+            const confirmBtn = messageDiv.querySelector('.confirm-execute-btn');
+            const cancelBtn = messageDiv.querySelector('.cancel-execute-btn');
 
-            // Add event listeners to the new buttons
-            messageDiv.querySelector('.confirm-execute-btn').addEventListener('click', async function() {
-                const query = this.dataset.query;
-                // Update the current message to "Executing..."
-                const parentMessageBubble = this.closest('.p-3.rounded-lg');
-                if (parentMessageBubble) {
-                    parentMessageBubble.innerHTML = `<p class="font-semibold text-blue-700">Executing query:</p><pre class="bg-blue-50 p-2 rounded mt-2 border border-blue-200"><code class="language-sql text-blue-900">${escapeHtml(query)}</code></pre><p class="mt-2 text-sm text-gray-600 italic">Please wait...</p>`;
-                }
-                chatHistory.scrollTop = chatHistory.scrollHeight;
-                await executeConfirmedQuery(query); // This will add a *new* message with the result
-                // ADDED: Update the original confirmation bubble after execution
-                if (parentMessageBubble) {
-                    parentMessageBubble.innerHTML = `<p class="text-sm text-gray-600 italic">The confirmed query execution has been processed. See result in the new message below.</p>`;
-                    // Optionally, change its styling to be less prominent or more indicative of a completed action
-                    parentMessageBubble.className = `p-3 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 max-w-3xl mr-auto prose prose-sm max-w-none shadow-sm`;
-                }
-            });
+            if (confirmBtn) {
+                confirmBtn.addEventListener('click', async function() {
+                    const query = this.dataset.query;
+                    // Update the current message to "Executing..."
+                    const parentMessageBubble = this.closest('.p-3.rounded-lg');
+                    if (parentMessageBubble) {
+                        parentMessageBubble.innerHTML = `<p class="font-semibold text-blue-700">Executing query:</p><pre class="bg-blue-50 p-2 rounded mt-2 border border-blue-200"><code class="language-sql text-blue-900">${escapeHtml(query)}</code></pre><p class="mt-2 text-sm text-gray-600 italic">Please wait...</p>`;
+                    }
+                    if (isChatScrolledToBottom()) {
+                        scrollChatToBottom();
+                    }
 
-            messageDiv.querySelector('.cancel-execute-btn').addEventListener('click', function() {
-                // Replace current message with cancellation
-                const parentMessageBubble = this.closest('.p-3.rounded-lg');
-                if (parentMessageBubble) {
-                     parentMessageBubble.className = `p-3 rounded-lg bg-gray-100 text-gray-600 max-w-3xl mr-auto prose prose-sm max-w-none italic shadow`;
-                    parentMessageBubble.innerHTML = `<p>Execution cancelled by user.</p>`;
-                }
-                chatHistory.scrollTop = chatHistory.scrollHeight;
-            });
+                    await executeConfirmedQuery(query); // This will add a *new* message with the result
 
-            chatHistory.scrollTop = chatHistory.scrollHeight;
+                    // Update the original confirmation bubble after execution
+                    if (parentMessageBubble) {
+                        parentMessageBubble.innerHTML = `<p class="text-sm text-gray-600 italic">The confirmed query execution has been processed. See result in the new message below.</p>`;
+                        parentMessageBubble.className = `p-3 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 max-w-3xl mr-auto prose prose-sm max-w-none shadow-sm`;
+                    }
+
+                    if (isChatScrolledToBottom()) {
+                        scrollChatToBottom();
+                    }
+                });
+            }
+
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', function() {
+                    const parentMessageBubble = this.closest('.p-3.rounded-lg');
+                    if (parentMessageBubble) {
+                        parentMessageBubble.className = `p-3 rounded-lg bg-gray-100 text-gray-600 max-w-3xl mr-auto prose prose-sm max-w-none italic shadow`;
+                        parentMessageBubble.innerHTML = `<p>Execution cancelled by user.</p>`;
+                    }
+                    if (isChatScrolledToBottom()) {
+                        scrollChatToBottom();
+                    }
+                });
+            }
+
+            // Conditionally auto-scroll only if the user was already near the bottom
+            if (isChatScrolledToBottom()) {
+                scrollChatToBottom();
+            }
             setLoadingState(false); // Ensure main input is usable while confirmation is shown
         }
 
@@ -1868,6 +1893,7 @@
                 }, { once: true });
             }
             addWelcomeMessage(); // Ensure welcome message is present on load
+            updateScrollBottomButton(); // ADDED
         });
 
         // --- Event Listeners ---
@@ -1967,7 +1993,11 @@
             // --- END ADDED LOGIC ---
 
             chatHistory.appendChild(messageDiv);
-            chatHistory.scrollTop = chatHistory.scrollHeight; // Scroll to bottom
+            // Conditionally auto-scroll only if the user was already near the bottom
+            if (isChatScrolledToBottom()) {
+                scrollChatToBottom();
+            }
+            updateScrollBottomButton(); // ADDED
 
             // ADDED: Call lucide.createIcons() AFTER the message is appended to the DOM
             if (sender === 'assistant') {
@@ -2008,6 +2038,58 @@
                 </div>`;
             chatHistory.innerHTML = welcomeHtml; // Use innerHTML to replace content
         }
+
+        // === Scroll helpers ===
+
+        // Returns true if the user is already viewing (or very close to) the bottom of the chat history
+        function isChatScrolledToBottom(thresholdPx = 20) {
+            return chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight < thresholdPx;
+        }
+
+        // Scrolls the chat history container to the bottom (safely and smoothly)
+        function scrollChatToBottom(forceSmooth = false) {
+            // If the scroll distance is short, allow smooth scroll
+            const distanceToBottom = chatHistory.scrollHeight - chatHistory.scrollTop - chatHistory.clientHeight;
+
+            const useSmooth = forceSmooth || distanceToBottom < 200;
+
+            if (chatHistory && typeof chatHistory.scrollTo === 'function') {
+                chatHistory.scrollTo({
+                    top: chatHistory.scrollHeight,
+                    behavior: useSmooth ? 'smooth' : 'auto'
+                });
+            } else {
+                chatHistory.scrollTop = chatHistory.scrollHeight; // Fallback
+            }
+        }
+
+        // === Go-to-bottom button logic ===
+        const scrollBottomBtn = document.getElementById('scroll-bottom-btn');
+
+        // Hide/show the button based on how far user is from the bottom
+        function updateScrollBottomButton() {
+            if (!scrollBottomBtn) return;
+            scrollBottomBtn.classList.toggle('hidden', isChatScrolledToBottom());
+        }
+
+        // Throttle the scroll event listener (important for performance)
+        let scrollTimeout = null;
+        chatHistory.addEventListener('scroll', () => {
+            if (scrollTimeout) return;
+            scrollTimeout = setTimeout(() => {
+                updateScrollBottomButton();
+                scrollTimeout = null;
+            }, 100); // adjust delay as needed
+        });
+
+        if (scrollBottomBtn) {
+            scrollBottomBtn.addEventListener('click', () => {
+                scrollChatToBottom(true); // force smooth on button click
+                updateScrollBottomButton();
+            });
+        }
+
+        // === End Go-to-bottom button logic ===
 
     </script>
 </body>

@@ -806,9 +806,10 @@ def _looks_conversational_only(message: str) -> bool:
     if any(marker in msg for marker in conversational_markers):
         return True
 
-    sql_keywords = ["select", "insert", "update", "delete", "create", "drop", "alter", "show", "describe"]
-    if msg.endswith('?') and not any(kw in msg for kw in sql_keywords):
-        return True
+    # NOTE: Previously any message ending with a question-mark and lacking obvious SQL keywords was
+    # treated as conversational. This heuristic was too aggressive and caused genuine NLQ requests
+    # (that naturally end with a question-mark) to be mis-classified. It has been removed so that
+    # only explicit conversational markers trigger conversational handling.
 
     return False
 
