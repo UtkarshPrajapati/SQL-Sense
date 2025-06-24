@@ -746,7 +746,9 @@
             width: 50%;
             min-width: 320px; /* Ensure it's usable on smaller screens */
             max-width: 700px;
-            margin: 1.5rem auto 0;
+            margin: 1.5rem 0 0 0; /* Remove auto margin, which is not animatable */
+            left: 50%;
+            transform: translateX(-50%);
             border-top: none;
             background: transparent;
             padding: 0;
@@ -771,7 +773,13 @@
             transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1), 
                         margin 0.8s cubic-bezier(0.4, 0, 0.2, 1),
                         padding 0.8s cubic-bezier(0.4, 0, 0.2, 1),
-                        background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+                        background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                        transform 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                        left 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            /* ADDED: establish positioning context for centering */
+            position: relative; 
+            left: 0;
+            transform: translateX(0);
         }
         
         #input-wrapper {
@@ -899,7 +907,7 @@
                 <i data-lucide="chevron-down" class="h-5 w-5"></i>
             </button>
 
-            <div id="chat-input-area" class="p-4 bg-white border-t border-gray-200 relative">
+            <div id="chat-input-area" class="w-full p-4 bg-white border-t border-gray-200 relative">
                 <div id="slash-command-popup" class="absolute bottom-full left-0 mb-1 w-auto bg-white border border-gray-300 rounded-md shadow-lg z-20 hidden">
                     <!-- Suggestions will be added here by JS -->
                 </div>
