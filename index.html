@@ -719,6 +719,81 @@
         .run-query-btn:hover {
             background-color: var(--md-primary-color);
         }
+
+        /* --- ADDED: Initial View & Animation Styles --- */
+        main#chat-area.initial-state {
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        main#chat-area.initial-state #chat-history {
+            display: none;
+        }
+
+        #initial-view-content {
+            display: none; /* Hidden by default in final state */
+            text-align: center;
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        main#chat-area.initial-state #initial-view-content {
+            display: block;
+            animation: fadeIn 0.8s ease-in-out;
+        }
+
+        main#chat-area.initial-state #chat-input-area {
+            width: 50%;
+            min-width: 320px; /* Ensure it's usable on smaller screens */
+            max-width: 700px;
+            margin: 1.5rem auto 0;
+            border-top: none;
+            background: transparent;
+            padding: 0;
+            box-shadow: none;
+        }
+        
+        main#chat-area.initial-state #chat-input-area #input-wrapper {
+            border-radius: 9999px; /* Pill shape for initial input */
+            box-shadow: var(--md-elevation-3);
+            background-color: var(--md-surface-color);
+        }
+        
+        main#chat-area.initial-state #chat-input-area #send-button {
+            background-color: var(--md-primary-color);
+        }
+        main#chat-area.initial-state #chat-input-area #send-button:hover {
+            background-color: var(--md-primary-color-dark);
+        }
+
+        #chat-input-area {
+            /* Smooth transition for all properties that will change */
+            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1), 
+                        margin 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                        padding 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                        background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        #input-wrapper {
+             transition: border-radius 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                         box-shadow 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                         background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes initial-view-fade-out {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-30px); }
+        }
+
+        main#chat-area:not(.initial-state) #initial-view-content {
+            animation: initial-view-fade-out 0.6s ease-out forwards;
+        }
+
+        main#chat-area:not(.initial-state) #chat-history {
+            animation: fadeIn 0.6s 0.4s ease-in-out forwards;
+            opacity: 0;
+        }
+        /* --- END ADDED STYLES --- */
     </style>
     <script>
         // JS to fix 100vh issue on mobile browsers
@@ -810,11 +885,13 @@
     <!-- Main Content Area: Chat + Schema Sidebar -->
     <div id="main-content-wrapper" class="flex flex-1 overflow-hidden">
 
-        <main id="chat-area" class="flex-1 flex flex-col overflow-hidden">
+        <main id="chat-area" class="flex-1 flex flex-col overflow-hidden initial-state">
+            <div id="initial-view-content" class="text-center px-4">
+                <h1 id="greeting" class="text-5xl font-bold text-gray-700 mb-4 tracking-tight"></h1>
+                <p id="welcome-text" class="text-gray-500 max-w-xl mx-auto">Hello! Ask me something about the data (e.g., "Show me all employees in HR") or run a specific query using <code class="bg-gray-200 text-gray-700 px-1 rounded text-xs">/run SELECT * FROM your_table;</code>.</p>
+            </div>
             <div id="chat-history" class="flex-1 overflow-y-auto space-y-4 p-4">
-                <div class="p-3 rounded-lg bg-blue-100 text-blue-800 max-w-xl mr-auto">
-                    <p class="text-sm">Hello! Ask me something about the data (e.g., "Show me all employees in HR") or run a specific query using <code class="bg-blue-200 px-1 rounded">/run SELECT * FROM your_table LIMIT 10;</code>.</p>
-                </div>
+                <!-- The initial welcome message is now handled by #initial-view-content -->
             </div>
 
             <!-- Go-to-bottom floating button (added) -->
@@ -822,7 +899,7 @@
                 <i data-lucide="chevron-down" class="h-5 w-5"></i>
             </button>
 
-            <div class="p-4 bg-white border-t border-gray-200 relative">
+            <div id="chat-input-area" class="p-4 bg-white border-t border-gray-200 relative">
                 <div id="slash-command-popup" class="absolute bottom-full left-0 mb-1 w-auto bg-white border border-gray-300 rounded-md shadow-lg z-20 hidden">
                     <!-- Suggestions will be added here by JS -->
                 </div>
@@ -896,6 +973,7 @@
         let isRunCommandActive = false;
         const originalPlaceholder = "Type your message or /run command...";
         const runCommandPlaceholder = "Enter SQL query (e.g., SELECT * FROM users)";
+        let isInitialState = true; // ADDED: Flag for the initial view
 
         // --- Helper Functions ---
 
@@ -1053,7 +1131,10 @@
             const animationDuration = 150; // ms, matches the CSS animation time
 
             if (isLoading) {
-                messageInput.disabled = true;
+                // ADDED: Don't disable input on the very first send to allow focus to be maintained during animation
+                if (!isInitialState) {
+                    messageInput.disabled = true;
+                }
                 sendButton.disabled = true;
                 
                 sendIcon.classList.add('icon-fade-out');
@@ -1635,6 +1716,14 @@
             const queryPart = messageInput.value.trim();
             let messageToSend;
 
+            // --- ADDED: Handle transition from initial state ---
+            if (isInitialState) {
+                if (!queryPart) return; // Don't submit empty on initial view
+                chatArea.classList.remove('initial-state');
+                isInitialState = false;
+            }
+            // --- END ADDED ---
+
             if (isRunCommandActive) {
                 if (queryPart) {
                     messageToSend = "/run " + queryPart;
@@ -1896,7 +1985,7 @@
                     headerDbIcon.classList.remove('icon-rotate-onload');
                 }, { once: true });
             }
-            addWelcomeMessage(); // Ensure welcome message is present on load
+            setGreeting(); // ADDED
             updateScrollBottomButton(); // ADDED
         });
 
@@ -1925,88 +2014,15 @@
         });
 
         function addWelcomeMessage() {
+            // This function is no longer needed to add the initial message bubble,
+            // as it is handled by the initial view. It can be kept for other purposes
+            // or if the chat reset needs to add a bubble back in a non-initial state.
+            if (isInitialState) return;
+
             const welcomeHtml = `<div class="p-3 rounded-lg bg-blue-100 text-blue-800 max-w-xl mr-auto">
-                    <p class="text-sm">Hello! Ask me something about the data (e.g., "Show me all employees in HR") or run a specific query using <code class="bg-blue-200 px-1 rounded">/run SELECT * FROM your_table LIMIT 10;</code>.</p>
+                    <p class="text-sm">Hello! Ask me something about the data (e.g., "Show me all employees in HR") or run a specific query using <code class="bg-blue-200 px-1 rounded">/run SELECT * FROM your_table;</code>.</p>
                 </div>`;
             chatHistory.innerHTML = welcomeHtml; // Use innerHTML to replace content
-        }
-
-        function addMessageToChat(sender, messageHtml, messageType = 'info') {
-            const messageDiv = document.createElement('div');
-            let bgColor, textColor, alignment;
-
-            if (sender === 'user') {
-                bgColor = 'bg-indigo-100';
-                textColor = 'text-indigo-900';
-                alignment = 'ml-auto'; // Align user messages to the right
-            } else { // Assistant messages
-                bgColor = 'bg-gray-100';
-                textColor = 'text-gray-900';
-                alignment = 'mr-auto'; // Align assistant messages to the left
-
-                if (messageType === 'error') {
-                    bgColor = 'bg-red-100';
-                    textColor = 'text-red-800';
-                } else if (messageType === 'result') {
-                     bgColor = 'bg-green-50'; // Lighter green for results
-                     textColor = 'text-gray-900'; // Keep text dark for readability
-                }
-            }
-
-            messageDiv.className = `p-3 rounded-lg ${bgColor} ${textColor} max-w-3xl ${alignment} prose prose-sm max-w-none`; // Use prose for markdown styling
-            messageDiv.innerHTML = messageHtml; // Use innerHTML as we are injecting HTML
-            
-            // --- ADDED: Logic to add "Run Query" buttons to SQL code blocks ---
-            if (sender === 'assistant') {
-                const codeBlocks = messageDiv.querySelectorAll('pre code.language-sql');
-                codeBlocks.forEach(codeBlock => {
-                    const preElement = codeBlock.parentElement;
-                    if (!preElement) return;
-
-                    const query = codeBlock.textContent.trim();
-
-                    if (query) {
-                        // Create a wrapper for relative positioning
-                        const wrapper = document.createElement('div');
-                        wrapper.className = 'relative'; // No longer need 'group' for hover
-
-                        const runButton = document.createElement('button');
-                        runButton.className = 'run-query-btn';
-                        runButton.innerHTML = `<i data-lucide="play" class="h-3 w-3 inline-block mr-1 -ml-1"></i> Run Query`;
-                        
-                        runButton.addEventListener('mouseover', () => runButton.style.backgroundColor = 'var(--md-primary-color)');
-                        runButton.addEventListener('mouseout', () => runButton.style.backgroundColor = 'var(--md-accent-color)');
-
-                        runButton.addEventListener('click', () => {
-                            showRunCommandTag();
-                            messageInput.value = query.replace(/\n/g, ' ');
-                            messageInput.focus();
-                        });
-
-                        // Replace the original <pre> with the wrapper containing the <pre> and the button
-                        if(preElement.parentNode) {
-                            preElement.parentNode.replaceChild(wrapper, preElement);
-                        }
-                        wrapper.appendChild(preElement);
-                        wrapper.appendChild(runButton);
-                    }
-                });
-                // After adding new icons via innerHTML, we must re-run lucide.
-                // MOVED: lucide.createIcons();
-            }
-            // --- END ADDED LOGIC ---
-
-            chatHistory.appendChild(messageDiv);
-            // Conditionally auto-scroll only if the user was already near the bottom
-            if (isChatScrolledToBottom()) {
-                scrollChatToBottom();
-            }
-            updateScrollBottomButton(); // ADDED
-
-            // ADDED: Call lucide.createIcons() AFTER the message is appended to the DOM
-            if (sender === 'assistant') {
-                lucide.createIcons();
-            }
         }
 
         async function resetChat() {
@@ -2021,7 +2037,12 @@
                 const data = await response.json();
                 if (data.status === 'success') {
                     chatHistory.innerHTML = ''; // Clear the chat history display
-                    addWelcomeMessage(); // Add the default welcome message back
+                    
+                    // ADDED: Reset to initial view state
+                    isInitialState = true;
+                    chatArea.classList.add('initial-state');
+                    setGreeting(); // Update greeting in case the time of day changed
+
                     showToast('New chat started.', 'success', 3000);
                 } else {
                     throw new Error(data.message || 'Failed to reset chat on server.');
@@ -2038,10 +2059,26 @@
 
         function addWelcomeMessage() {
             const welcomeHtml = `<div class="p-3 rounded-lg bg-blue-100 text-blue-800 max-w-xl mr-auto">
-                    <p class="text-sm">Hello! Ask me something about the data (e.g., "Show me all employees in HR") or run a specific query using <code class="bg-blue-200 px-1 rounded">/run SELECT * FROM your_table LIMIT 10;</code>.</p>
+                    <p class="text-sm">Hello! Ask me something about the data (e.g., "Show me all employees in HR") or run a specific query using <code class="bg-blue-200 px-1 rounded">/run SELECT * FROM your_table;</code>.</p>
                 </div>`;
             chatHistory.innerHTML = welcomeHtml; // Use innerHTML to replace content
         }
+
+        // === ADDED: Greeting Function ===
+        function setGreeting() {
+            const greetingEl = document.getElementById('greeting');
+            if (!greetingEl) return;
+
+            const hour = new Date().getHours();
+            let greetingText = "Good Evening";
+            if (hour >= 5 && hour < 12) {
+                greetingText = "Good Morning";
+            } else if (hour >= 12 && hour < 18) {
+                greetingText = "Good Afternoon";
+            }
+            greetingEl.textContent = greetingText;
+        }
+        // === END ADDED ===
 
         // === Scroll helpers ===
 
