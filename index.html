@@ -244,6 +244,10 @@
             gap: 0.75rem; /* Increased gap */
             max-width: 350px; /* Slightly wider toasts */
         }
+        /* Ensure the scroll-to-bottom floating button stays above sticky table headers */
+        #scroll-bottom-btn {
+            z-index: 200; /* Higher than .results-table th (z-index:10) */
+        }
         .toast {
             padding: 0.75rem 1.25rem; /* Adjust padding */
             border-radius: 4px; /* Standard Material rounding */
