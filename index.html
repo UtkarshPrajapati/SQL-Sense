@@ -755,17 +755,27 @@
             box-shadow: none;
         }
         
-        main#chat-area.initial-state #chat-input-area #input-wrapper {
+        main#chat-area.initial-state #input-wrapper {
             border-radius: 9999px; /* Pill shape for initial input */
             box-shadow: var(--md-elevation-3);
             background-color: var(--md-surface-color);
+            min-height: 56px; /* ~h-14, increased height */
+            transition: min-height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
         main#chat-area.initial-state #chat-input-area #send-button {
             background-color: var(--md-primary-color);
+            width: 50px; /* Larger send button */
+            height: 50px;
+            transition: width 0.3s ease, height 0.3s ease;
         }
         main#chat-area.initial-state #chat-input-area #send-button:hover {
             background-color: var(--md-primary-color-dark);
+        }
+        
+        main#chat-area.initial-state #terminal-btn {
+            width: 2.5rem; /* w-8 */
+            height: 2.5rem; /* h-8 */
         }
 
         #chat-input-area {
@@ -800,6 +810,25 @@
         main#chat-area:not(.initial-state) #chat-history {
             animation: fadeIn 0.6s 0.4s ease-in-out forwards;
             opacity: 0;
+        }
+        /* --- END ADDED STYLES --- */
+
+        /* --- ADDED: Terminal Icon Button Style --- */
+        #terminal-btn {
+            background-color: #3F51B5; /* bg-indigo-600 */
+            color: #ffffff; /* text-white */
+            border-radius: 9999px; /* rounded-full */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.75rem; /* w-7 */
+            height: 1.75rem; /* h-7 */
+            margin-left: 0.5rem; /* ml-2 */
+            flex-shrink: 0;
+            transition: background-color 0.15s ease-in-out, width 0.3s ease, height 0.3s ease; /* Added width/height transition */
+        }
+        #terminal-btn:hover {
+            background-color: #4338ca; /* hover:bg-indigo-700 */
         }
         /* --- END ADDED STYLES --- */
     </style>
@@ -896,7 +925,7 @@
         <main id="chat-area" class="flex-1 flex flex-col overflow-hidden initial-state">
             <div id="initial-view-content" class="text-center px-4">
                 <h1 id="greeting" class="text-5xl font-bold text-gray-700 mb-4 tracking-tight"></h1>
-                <p id="welcome-text" class="text-gray-500 max-w-xl mx-auto">Hello! Ask me something about the data (e.g., "Show me all employees in HR") or run a specific query using <code class="bg-gray-200 text-gray-700 px-1 rounded text-xs">/run SELECT * FROM your_table;</code>.</p>
+                <p id="welcome-text" class="text-gray-500 max-w-xl mx-auto">Curious about your data? Ask a question or type <code class="bg-gray-200 text-gray-700 px-1 rounded text-xs">/run</code> to execute a direct SQL query.</p>
             </div>
             <div id="chat-history" class="flex-1 overflow-y-auto space-y-4 p-4">
                 <!-- The initial welcome message is now handled by #initial-view-content -->
@@ -913,6 +942,9 @@
                 </div>
                 <form id="chat-form" class="flex items-center space-x-3">
                     <div id="input-wrapper" class="flex-1 flex items-center border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition duration-150 ease-in-out overflow-hidden">
+                        <button type="button" id="terminal-btn" title="Activate Run Command">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20"y2="19"></line></svg>
+                        </button>
                         <span id="run-command-tag" class="hidden bg-blue-600 text-white text-sm font-semibold py-1 px-3 flex items-center cursor-default">
                             /run
                             <button type="button" id="remove-run-tag-btn" class="text-blue-200 hover:text-white focus:outline-none p-1">
@@ -1719,6 +1751,15 @@
 
         // --- Event Listeners ---
 
+        document.getElementById('terminal-btn').addEventListener('click', () => {
+            // If the initial animation hasn't run, clicking the terminal button should also trigger it.
+            if (isInitialState) {
+                chatArea.classList.remove('initial-state');
+                isInitialState = false;
+            }
+            showRunCommandTag();
+        });
+
         chatForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const queryPart = messageInput.value.trim();
@@ -2028,7 +2069,7 @@
             if (isInitialState) return;
 
             const welcomeHtml = `<div class="p-3 rounded-lg bg-blue-100 text-blue-800 max-w-xl mr-auto">
-                    <p class="text-sm">Hello! Ask me something about the data (e.g., "Show me all employees in HR") or run a specific query using <code class="bg-blue-200 px-1 rounded">/run SELECT * FROM your_table;</code>.</p>
+                    <p class="text-sm">Curious about your data? Ask a question or type <code class="bg-gray-200 text-gray-700 px-1 rounded text-xs">/run</code> to execute a direct SQL query.</p>
                 </div>`;
             chatHistory.innerHTML = welcomeHtml; // Use innerHTML to replace content
         }
@@ -2067,7 +2108,7 @@
 
         function addWelcomeMessage() {
             const welcomeHtml = `<div class="p-3 rounded-lg bg-blue-100 text-blue-800 max-w-xl mr-auto">
-                    <p class="text-sm">Hello! Ask me something about the data (e.g., "Show me all employees in HR") or run a specific query using <code class="bg-blue-200 px-1 rounded">/run SELECT * FROM your_table;</code>.</p>
+                    <p class="text-sm">Curious about your data? Ask a question or type <code class="bg-blue-200 text-gray-700 px-1 rounded text-xs">/run</code> to execute a direct SQL query.</p>
                 </div>`;
             chatHistory.innerHTML = welcomeHtml; // Use innerHTML to replace content
         }
@@ -2081,7 +2122,7 @@
             let greetingText = "Good Evening";
             if (hour >= 5 && hour < 12) {
                 greetingText = "Good Morning";
-            } else if (hour >= 12 && hour < 18) {
+            } else if (hour >= 12 && hour < 16) {
                 greetingText = "Good Afternoon";
             }
             greetingEl.textContent = greetingText;
