@@ -19,6 +19,7 @@ from fastapi_sessions.frontends.implementations import SessionCookie, CookiePara
 from fastapi_sessions.backends.implementations import InMemoryBackend
 from fastapi_sessions.session_verifier import SessionVerifier
 from contextlib import asynccontextmanager
+import re
 
 # --- Configuration ---
 load_dotenv() # Load environment variables from .env file
@@ -602,7 +603,20 @@ def get_conversational_response_with_gemini(user_message: str, history: List[Dic
     logger.info(f"Getting conversational response for: {user_message}")
     
     # Construct the final prompt for the API call
-    prompt = f"""You are a helpful assistant. Respond conversationally and politely to the following user message. Do not attempt to generate SQL or refer to databases unless the user explicitly asks about them in this message.
+    # NOTE: Updated to make the assistant more context-aware so it can handle
+    # follow-up questions such as "ok then do it" that implicitly refer to a
+    # previously suggested SQL query or insight.  The assistant is now
+    # allowed to reference earlier discussion and, when appropriate, suggest
+    # or execute SQL.  This should prevent situations where the model keeps
+    # asking what the user means by "it".
+    prompt = f"""You are a helpful assistant specialising in SQL, databases and data analysis.  Continue the conversation below, making sure to use the prior context to resolve pronouns or vague references (e.g. what "it" refers to).
+
+Guidelines:
+1. If the user implicitly refers to a SQL statement that was suggested earlier (for example saying "ok then do it"), infer that reference from the prior messages and either:
+   • show the SQL you believe they are referring to and ask for explicit confirmation, **or**
+   • execute the action if it is clearly safe and previously agreed upon.
+2. If the user explicitly asks for or clearly implies a database action, you may include or discuss SQL.  Otherwise respond conversationally.
+3. If the reference is genuinely ambiguous after considering the context, politely ask for clarification **once** instead of repeatedly.
 
 User Message: "{user_message}"
 
@@ -770,6 +784,34 @@ def get_query_risk_level(sql_query: str) -> int:
         return 2 # If any other exception occurs during parsing, fail-closed.
 
 # --- Pydantic Models ---
+
+# Helper to classify whether a message is conversational-only (does not request new SQL).
+# NOTE: Placed here so it is available when the /chat endpoint is defined below.
+
+def _looks_conversational_only(message: str) -> bool:
+    """Determine if the user message looks like a conversational or explanatory request.
+
+    The goal is to let the assistant stay in conversational mode when the user says
+    things such as "explain the above" or "don't write SQL".
+    """
+    msg = message.strip().lower()
+    if msg.startswith(("hello", "hi", "hey", "thanks", "thank you", "ok")):
+        return True
+
+    conversational_markers = [
+        "explain", "insight", "insights", "what does", "meaning", "dont write sql",
+        "don't write sql", "not in sql", "just explain", "only explain", "explain above",
+        "explain the above"
+    ]
+    if any(marker in msg for marker in conversational_markers):
+        return True
+
+    sql_keywords = ["select", "insert", "update", "delete", "create", "drop", "alter", "show", "describe"]
+    if msg.endswith('?') and not any(kw in msg for kw in sql_keywords):
+        return True
+
+    return False
+
 class ChatRequest(BaseModel):
     message: str
 
@@ -972,12 +1014,23 @@ async def handle_chat(chat_request: ChatRequest, session_id: uuid.UUID = Depends
     history = list(session_data.history)
 
     try:
-        # Step 1: Determine the query to run, either from a /run command or by generating it.
+        # Step 1: Determine the nature of the user message.
         if user_message.lower().startswith("/run "):
+            # Direct SQL execution command.
             query_to_run = user_message[5:].strip()
             if not query_to_run:
                 response_data = {"type": "error", "content": "No query provided after /run command."}
                 return JSONResponse(content=response_data)
+        elif _looks_conversational_only(user_message):
+            # The user appears to want a non-SQL explanation or general conversation.
+            model_response_text = get_conversational_response_with_gemini(user_message, history)
+            response_data = {"type": "info", "content": model_response_text}
+
+            add_to_history(session_data, "user", user_message)
+            add_to_history(session_data, "model", model_response_text)
+            await session_backend.update(session_id, session_data)
+
+            return JSONResponse(content=jsonable_encoder(response_data))
         else:
             logger.info(f"Processing natural language query: {user_message}")
             schema = fetch_all_tables_and_columns()
