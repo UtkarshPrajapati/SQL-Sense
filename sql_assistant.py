@@ -497,6 +497,7 @@ Instructions:
 - If the user asks for a relationship between tables, generate a `JOIN` query. When using a `JOIN`, do not use `SELECT *`. Instead, select specific, useful columns from both tables to show the relationship.
 - If the user asks to create a table, make reasonable assumptions for column types (e.g., VARCHAR(255) for text, INT for IDs).
 - If querying a table, use the fully qualified name (e.g., `database_name`.`table_name`).
+- Do NOT include any `USE database_name;` statement. Avoid changing the current database context; always reference tables with the dotted notation as shown above.
 - Generate only **one single** SQL statement. Do not include multiple statements or comments.
 - Do not include any explanations, introductory text, backticks (```sql), or markdown formatting.
 - If the user's request is impossible to answer with a SQL query (e.g., it's a greeting like "hello"), then and only then, respond with the exact text: "Error: This is a conversational query."
