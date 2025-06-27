@@ -835,6 +835,96 @@
             background-color: #4338ca; /* hover:bg-indigo-700 */
         }
         /* --- END ADDED STYLES --- */
+
+        /* --- ADDED: Dark Mode Styles --- */
+        .dark {
+            --md-primary-color: #9fa8da; /* Lighter Indigo */
+            --md-primary-color-dark: #7986cb;
+            --md-accent-color: #82b1ff;
+            --md-text-primary-on-background: rgba(255, 255, 255, 0.87);
+            --md-text-secondary-on-background: rgba(255, 255, 255, 0.60);
+            --md-surface-color: #1e1e1e;
+            --md-background-color: #121212;
+            --md-border-color: #333;
+            --md-error-color: #ef5350;
+        }
+
+        .dark #chat-history .p-3.rounded-lg.ml-auto { /* User messages in dark mode */
+            background-color: var(--md-accent-color);
+            color: #121212; /* Dark text on light accent color for readability */
+        }
+        .dark #chat-history .ml-auto .prose pre {
+             background-color: rgba(0,0,0,0.2);
+             border-color: rgba(0,0,0,0.3);
+             color: white;
+        }
+        .dark code.language-sql {
+             color: white;
+        }
+        .dark #chat-history .p-3.rounded-lg.mr-auto { /* Assistant messages in dark mode */
+             border-color: var(--md-border-color);
+        }
+        
+        .dark #greeting, .dark #welcome-text {
+            color: var(--md-text-primary-on-background);
+        }
+
+        .dark #send-button {
+            background-color: #3F51B5 !important; /* Match terminal button background */
+        }
+        .dark #send-button:hover {
+            background-color: #4338ca !important; /* Match terminal button hover */
+        }
+
+        #dark-mode-icon-container {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dark #header-link,
+        .dark .header-btn {
+             color: #e8eaf6; /* A very light indigo for text on dark header */
+             background-color: #283593; /* A darker indigo for dark mode button background */
+        }
+        .dark .header-btn:hover {
+             background-color: #3949ab;
+        }
+        .dark .header-btn .btn-icon,
+        .dark #schema-db-icon svg,
+        .dark #schema-up-icon svg {
+            color: #e8eaf6 !important; /* Override inline styles if any */
+        }
+        /* --- END ADDED STYLES --- */
+
+        .dark .header-btn:hover {
+             background-color: #3949ab;
+        }
+
+        .dark #header-link {
+            background-color: transparent;
+        }
+
+        .dark .header-btn .btn-icon,
+        .dark #schema-db-icon svg,
+        .dark #schema-up-icon svg {
+            color: #e8eaf6 !important; /* Override inline styles if any */
+        }
+
+        .dark #config-popup h3 {
+            color: var(--md-text-primary-on-background);
+        }
+
+        /* --- ADDED: Fix for browser autofill styles (v2) --- */
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus,
+        input:-webkit-autofill:active {
+            -webkit-transition-delay: 9999s;
+            transition-delay: 9999s;
+        }
+        /* --- END: Fix for browser autofill styles --- */
+
     </style>
     <script>
         // JS to fix 100vh issue on mobile browsers
@@ -846,14 +936,20 @@
         document.addEventListener('DOMContentLoaded', setAppHeight);
     </script>
 </head>
-<body class="bg-gray-100 font-sans flex flex-col" style="height: var(--app-height, 100vh);">
+<body class="font-sans flex flex-col" style="height: var(--app-height, 100vh);">
 
-    <header class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-4 shadow-md flex justify-between items-center z-20">
+    <header class="bg-gradient-to-r from-indigo-800 to-blue-600 text-white p-4 shadow-md flex justify-between items-center z-20">
         <a href="/" id="header-link" class="text-xl font-bold flex items-center">
             <img id="header-db-icon" src="/static/DataFlow.png" alt="DataFlow Logo" class="mr-2 h-9 w-9" style="filter: brightness(0) invert(1);">
             <span id="header-title-text">DataFlow</span>
         </a>
         <div class="flex items-center space-x-3">
+            <button id="dark-mode-toggle-btn" class="header-btn bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg text-sm flex items-center shadow">
+                <span id="dark-mode-icon-container" class="btn-icon mr-1 h-4 w-4">
+                    <!-- Icon will be placed here by JS -->
+                </span>
+                <span class="btn-text">Theme</span>
+            </button>
             <button id="new-chat-btn" class="header-btn bg-white text-indigo-600 hover:bg-indigo-100 font-semibold py-2 px-4 rounded-lg text-sm flex items-center shadow">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon mr-1 h-4 w-4 text-indigo-600"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
                 <span class="btn-text">New Chat</span>
@@ -878,9 +974,9 @@
     <div id="toast-container"></div>
 
     <!-- Configuration Popup -->
-    <div id="config-popup" class="bg-white rounded-lg p-4 border border-gray-200">
+    <div id="config-popup" class="rounded-lg p-4">
         <div class="flex justify-between items-center mb-3">
-            <h3 class="font-semibold text-gray-800">Database Configuration</h3>
+            <h3 class="font-semibold">Database Configuration</h3>
             <button id="close-config-btn" class="text-gray-500 hover:text-gray-700">
                 <i data-lucide="x" class="h-4 w-4"></i>
             </button>
@@ -940,14 +1036,14 @@
                 <i data-lucide="chevron-down" class="h-5 w-5"></i>
             </button>
 
-            <div id="chat-input-area" class="w-full p-4 bg-white border-t border-gray-200 relative">
-                <div id="slash-command-popup" class="absolute bottom-full left-0 mb-1 w-auto bg-white border border-gray-300 rounded-md shadow-lg z-20 hidden">
+            <div id="chat-input-area" class="w-full p-4 relative">
+                <div id="slash-command-popup" class="absolute bottom-full left-0 mb-1 w-auto border rounded-md shadow-lg z-20 hidden">
                     <!-- Suggestions will be added here by JS -->
                 </div>
                 <form id="chat-form" class="flex items-center space-x-3">
-                    <div id="input-wrapper" class="flex-1 flex items-center border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition duration-150 ease-in-out overflow-hidden">
+                    <div id="input-wrapper" class="flex-1 flex items-center rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition duration-150 ease-in-out overflow-hidden">
                         <button type="button" id="terminal-btn" title="Activate Run Command">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20"y2="19"></line></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-terminal-icon lucide-terminal"><path d="M12 19h8"/><path d="m4 17 6-6-6-6"/></svg>
                         </button>
                         <span id="run-command-tag" class="hidden bg-blue-600 text-white text-sm font-semibold py-1 px-3 flex items-center cursor-default">
                             /run
@@ -973,14 +1069,14 @@
             <!-- Content will be dynamically inserted by JS, including spinner -->
             <!-- The header and refresh button are now part of the dynamic content or structured here -->
             <div id="schema-display-header">
-                 <h3 class="font-semibold text-gray-700">Database Schema</h3>
-                 <button id="refresh-schema-btn" class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-1 px-2 rounded inline-flex items-center">
+                 <h3 class="font-semibold text-gray-700 dark:text-gray-200">Database Schema</h3>
+                 <button id="refresh-schema-btn" class="text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 font-semibold py-1 px-2 rounded inline-flex items-center">
                     <svg class="mr-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg> Refresh Schema
                 </button>
             </div>
-            <div id="schema-content" class="text-gray-600">
+            <div id="schema-content" class="text-gray-600 dark:text-gray-400">
                 <!-- Schema items will be loaded here -->
             </div>
         </div>
@@ -1007,6 +1103,11 @@
         // --- ADDED: Reference to new main content and chat area elements ---
         const mainContentWrapper = document.getElementById('main-content-wrapper');
         const chatArea = document.getElementById('chat-area');
+        // --- END ADDED ---
+        
+        // --- ADDED: Dark Mode Elements ---
+        const darkModeToggleBtn = document.getElementById('dark-mode-toggle-btn');
+        const darkModeIconContainer = document.getElementById('dark-mode-icon-container');
         // --- END ADDED ---
         
         // --- Autocomplete /run command elements ---
@@ -1049,27 +1150,17 @@
 
         function addMessageToChat(sender, messageHtml, messageType = 'info') {
             const messageDiv = document.createElement('div');
-            let bgColor, textColor, alignment;
+            let alignment;
 
             if (sender === 'user') {
-                bgColor = 'bg-indigo-100';
-                textColor = 'text-indigo-900';
-                alignment = 'ml-auto'; // Align user messages to the right
+                // User message style is now handled by pure CSS for easier dark mode adjustments
+                alignment = 'ml-auto';
             } else { // Assistant messages
-                bgColor = 'bg-gray-100';
-                textColor = 'text-gray-900';
-                alignment = 'mr-auto'; // Align assistant messages to the left
-
-                if (messageType === 'error') {
-                    bgColor = 'bg-red-100';
-                    textColor = 'text-red-800';
-                } else if (messageType === 'result') {
-                     bgColor = 'bg-green-50'; // Lighter green for results
-                     textColor = 'text-gray-900'; // Keep text dark for readability
-                }
+                // Assistant message style is now handled by pure CSS
+                alignment = 'mr-auto';
             }
 
-            messageDiv.className = `p-3 rounded-lg ${bgColor} ${textColor} max-w-3xl ${alignment} prose prose-sm max-w-none`; // Use prose for markdown styling
+            messageDiv.className = `p-3 rounded-lg max-w-3xl ${alignment} prose prose-sm max-w-none`; // Use prose for markdown styling
             messageDiv.innerHTML = messageHtml; // Use innerHTML as we are injecting HTML
             
             // --- ADDED: Logic to add "Run Query" buttons to SQL code blocks ---
@@ -1419,13 +1510,13 @@
         function addConfirmationMessageToChat(messageText, queryToConfirm) {
             const messageDiv = document.createElement('div');
             // Using a distinct style for confirmation prompts
-            messageDiv.className = `p-3 rounded-lg bg-yellow-100 border border-yellow-300 text-yellow-800 max-w-3xl mr-auto prose prose-sm max-w-none shadow`;
+            messageDiv.className = `p-3 rounded-lg max-w-3xl mr-auto prose prose-sm max-w-none shadow`;
 
             let htmlContent = `<p class="font-semibold">${escapeHtml(messageText)}</p>`;
-            htmlContent += `<pre class="bg-yellow-50 p-2 rounded mt-2 border border-yellow-200"><code class="language-sql text-black">${escapeHtml(queryToConfirm)}</code></pre>`;
+            htmlContent += `<pre class="p-2 rounded mt-2"><code class="language-sql">${escapeHtml(queryToConfirm)}</code></pre>`;
             htmlContent += `<div class="mt-3 flex space-x-2">
-                                <button class="confirm-execute-btn bg-green-600 hover:bg-green-700 text-white font-semibold py-1.5 px-4 rounded text-sm shadow-sm transition-colors duration-150" data-query="${escapeHtml(queryToConfirm)}">Execute</button>
-                                <button class="cancel-execute-btn bg-red-600 hover:bg-red-700 text-white font-semibold py-1.5 px-4 rounded text-sm shadow-sm transition-colors duration-150">Cancel</button>
+                                <button class="confirm-execute-btn font-semibold py-1.5 px-4 rounded text-sm shadow-sm transition-colors duration-150" data-query="${escapeHtml(queryToConfirm)}">Execute</button>
+                                <button class="cancel-execute-btn font-semibold py-1.5 px-4 rounded text-sm shadow-sm transition-colors duration-150">Cancel</button>
                              </div>`;
 
             messageDiv.innerHTML = htmlContent;
@@ -2031,6 +2122,12 @@
         // Page load animation for header icon
         document.addEventListener('DOMContentLoaded', () => {
             fetchAndApplyConfig(); // Fetch config on page load
+
+            // --- ADDED: Initialize dark mode from system preference ---
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            setDarkMode(prefersDark);
+            // --- END ADDED ---
+
             const headerDbIcon = document.getElementById('header-db-icon');
             if (headerDbIcon) {
                 headerDbIcon.classList.add('icon-rotate-onload');
@@ -2072,7 +2169,7 @@
             // or if the chat reset needs to add a bubble back in a non-initial state.
             if (isInitialState) return;
 
-            const welcomeHtml = `<div class="p-3 rounded-lg bg-blue-100 text-blue-800 max-w-xl mr-auto">
+            const welcomeHtml = `<div class="p-3 rounded-lg max-w-xl mr-auto">
                     <p class="text-sm">Curious about your data? Ask a question or type <code class="bg-gray-200 text-gray-700 px-1 rounded text-xs">/run</code> to execute a direct SQL query.</p>
                 </div>`;
             chatHistory.innerHTML = welcomeHtml; // Use innerHTML to replace content
@@ -2111,7 +2208,7 @@
         });
 
         function addWelcomeMessage() {
-            const welcomeHtml = `<div class="p-3 rounded-lg bg-blue-100 text-blue-800 max-w-xl mr-auto">
+            const welcomeHtml = `<div class="p-3 rounded-lg max-w-xl mr-auto">
                     <p class="text-sm">Curious about your data? Ask a question or type <code class="bg-blue-200 text-gray-700 px-1 rounded text-xs">/run</code> to execute a direct SQL query.</p>
                 </div>`;
             chatHistory.innerHTML = welcomeHtml; // Use innerHTML to replace content
@@ -2184,6 +2281,26 @@
         }
 
         // === End Go-to-bottom button logic ===
+
+        // --- ADDED: Dark Mode Functions ---
+        function setDarkMode(isDark) {
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+                darkModeIconContainer.innerHTML = '<i data-lucide="sun"></i>';
+            } else {
+                document.documentElement.classList.remove('dark');
+                darkModeIconContainer.innerHTML = '<i data-lucide="moon"></i>';
+            }
+            lucide.createIcons();
+        }
+        // --- END: Dark Mode Functions ---
+
+        // --- ADDED: Dark Mode Toggle Event Listener ---
+        darkModeToggleBtn.addEventListener('click', () => {
+            const isDarkMode = document.documentElement.classList.contains('dark');
+            setDarkMode(!isDarkMode);
+        });
+        // --- END ADDED ---
 
     </script>
 </body>
