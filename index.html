@@ -925,8 +925,85 @@
         }
         /* --- END: Fix for browser autofill styles --- */
 
+        /* --- ADDED: Ripple Effect --- */
+        .ripple-container {
+            position: relative;
+            overflow: hidden;
+        }
+
+        span.ripple {
+            position: absolute;
+            border-radius: 50%;
+            transform: scale(0);
+            animation: ripple-animation 600ms linear;
+            /* Light ripple for dark buttons. Effect is only triggered in dark mode via JS. */
+            background-color: rgba(255, 255, 255, 0.25); 
+        }
+
+        @keyframes ripple-animation {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+        /* --- END: Ripple Effect --- */
+
+        /* --- ADDED: Theme Toggle Ripple --- */
+        .theme-toggle-ripple {
+            position: fixed;
+            border-radius: 50%;
+            transform: scale(0);
+            pointer-events: none;
+            z-index: 9999;
+            animation: theme-toggle-ripple-animation 0.6s ease-out forwards;
+        }
+
+        @keyframes theme-toggle-ripple-animation {
+            to {
+                transform: scale(1);
+                opacity: 0;
+            }
+        }
+        /* --- END: Theme Toggle Ripple --- */
     </style>
     <script>
+        // === END ADDED ===
+
+        // === ADDED: Theme Toggle Ripple Logic ===
+        function createThemeToggleRipple(event, toDarkMode) {
+            // Create overlay ripple element
+            const ripple = document.createElement('span');
+            ripple.className = 'theme-toggle-ripple';
+
+            // Position the ripple at the click location
+            const x = event.clientX;
+            const y = event.clientY;
+            ripple.style.left = x + 'px';
+            ripple.style.top = y + 'px';
+
+            // Use the target theme's background colour for the ripple
+            ripple.style.backgroundColor = toDarkMode ? '#121212' : '#ffffff';
+
+            // Ensure the ripple is large enough to cover the entire viewport
+            const maxDim = Math.max(window.innerWidth, window.innerHeight);
+            const size = maxDim * 2; // extra to ensure coverage
+            ripple.style.width = ripple.style.height = size + 'px';
+            ripple.style.marginLeft = `-${size / 2}px`;
+            ripple.style.marginTop = `-${size / 2}px`;
+
+            document.body.appendChild(ripple);
+
+            // Toggle the theme shortly after the ripple starts so the change happens under the overlay
+            setTimeout(() => {
+                setDarkMode(toDarkMode);
+            }, 50);
+
+            // Clean up after animation completes
+            ripple.addEventListener('animationend', () => {
+                ripple.remove();
+            });
+        }
+        // === END ADDED ===
         // JS to fix 100vh issue on mobile browsers
         function setAppHeight() {
             const doc = document.documentElement;
@@ -2128,6 +2205,14 @@
             setDarkMode(prefersDark);
             // --- END ADDED ---
 
+            // === ADDED: Apply ripple effect to main buttons ===
+            const buttonsForRipple = document.querySelectorAll('.header-btn, #send-button, #refresh-schema-btn, #config-save-btn, #close-config-btn, #terminal-btn, #scroll-bottom-btn');
+            buttonsForRipple.forEach(button => {
+                button.classList.add('ripple-container');
+                button.addEventListener('click', createRipple);
+            });
+            // === END ADDED ===
+
             const headerDbIcon = document.getElementById('header-db-icon');
             if (headerDbIcon) {
                 headerDbIcon.classList.add('icon-rotate-onload');
@@ -2214,6 +2299,42 @@
             chatHistory.innerHTML = welcomeHtml; // Use innerHTML to replace content
         }
 
+        // === ADDED: Ripple Effect Logic ===
+        function createRipple(event) {
+            // Only create ripple in dark mode
+            if (!document.documentElement.classList.contains('dark')) {
+                return;
+            }
+
+            const button = event.currentTarget;
+            
+            const circle = document.createElement("span");
+            const diameter = Math.max(button.clientWidth, button.clientHeight);
+            const radius = diameter / 2;
+
+            const rect = button.getBoundingClientRect();
+            circle.style.width = circle.style.height = `${diameter}px`;
+            circle.style.left = `${event.clientX - rect.left - radius}px`;
+            circle.style.top = `${event.clientY - rect.top - radius}px`;
+            circle.classList.add("ripple");
+            
+            // Remove any previous ripple to avoid build-up
+            const oldRipple = button.querySelector(".ripple");
+            if (oldRipple) {
+                oldRipple.remove();
+            }
+
+            button.appendChild(circle);
+
+            // Clean up after animation
+            circle.addEventListener('animationend', () => {
+                if (circle.parentElement) {
+                    circle.remove();
+                }
+            });
+        }
+        // === END ADDED ===
+
         // === ADDED: Greeting Function ===
         function setGreeting() {
             const greetingEl = document.getElementById('greeting');
@@ -2296,9 +2417,9 @@
         // --- END: Dark Mode Functions ---
 
         // --- ADDED: Dark Mode Toggle Event Listener ---
-        darkModeToggleBtn.addEventListener('click', () => {
+        darkModeToggleBtn.addEventListener('click', (e) => {
             const isDarkMode = document.documentElement.classList.contains('dark');
-            setDarkMode(!isDarkMode);
+            createThemeToggleRipple(e, !isDarkMode);
         });
         // --- END ADDED ---
 
