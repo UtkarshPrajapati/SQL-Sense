@@ -17,7 +17,7 @@
 
     <header class="bg-gradient-to-r from-indigo-800 to-blue-600 text-white p-4 shadow-md flex justify-between items-center z-20">
         <a href="/" id="header-link" class="text-xl font-bold flex items-center">
-            <img id="header-db-icon" src="/static/DataFlow.png" alt="DataFlow Logo" class="mr-2 h-9 w-9" style="filter: brightness(0) invert(1);">
+            <img id="header-db-icon" loading="lazy" src="/static/DataFlow.png" alt="DataFlow Logo" class="mr-2 h-9 w-9" style="filter: brightness(0) invert(1);">
             <span id="header-title-text">DataFlow</span>
         </a>
         <div class="flex items-center space-x-3">
@@ -55,34 +55,34 @@
         <div class="flex justify-between items-center mb-3">
             <h3 class="font-semibold">Database Configuration</h3>
             <button id="close-config-btn" class="text-gray-500 hover:text-gray-700">
-                <i data-lucide="x" class="h-4 w-4"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x-icon lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
             </button>
         </div>
         <form id="config-form" class="space-y-4 pt-2">
             <div class="input-group">
-                <i data-lucide="server" class="icon h-4 w-4"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-server-icon lucide-server"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
                 <input type="text" id="mysql-host" name="mysql-host" placeholder=" " class="bg-transparent">
                 <label for="mysql-host" class="floating-label">MySQL Host</label>
             </div>
             <div class="input-group">
-                <i data-lucide="user" class="icon h-4 w-4"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-icon lucide-user"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 <input type="text" id="mysql-user" name="mysql-user" placeholder=" " class="bg-transparent" autocomplete="new-password">
                 <label for="mysql-user" class="floating-label">MySQL User</label>
             </div>
             <div class="input-group">
-                <i data-lucide="key-round" class="icon h-4 w-4"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-key-round-icon lucide-key-round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor" data-darkreader-inline-fill="" style="--darkreader-inline-fill: currentColor;"/></svg>
                 <input type="password" id="mysql-password" name="mysql-password" placeholder=" " class="bg-transparent" autocomplete="new-password">
                 <label for="mysql-password" class="floating-label">MySQL Password</label>
                 <button type="button" class="toggle-password" data-target="mysql-password">
-                    <i data-lucide="eye" class="h-4 w-4"></i>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye-icon lucide-eye"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
             </div>
             <div class="input-group">
-                <i data-lucide="key-round" class="icon h-4 w-4"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-key-round-icon lucide-key-round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor" data-darkreader-inline-fill="" style="--darkreader-inline-fill: currentColor;"/></svg>
                 <input type="password" id="gemini-api-key" name="gemini-api-key" placeholder=" " class="bg-transparent">
                 <label for="gemini-api-key" class="floating-label">Gemini API Key</label>
                 <button type="button" class="toggle-password" data-target="gemini-api-key">
-                    <i data-lucide="eye" class="h-4 w-4"></i>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye-icon lucide-eye"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
                 </button>
             </div>
             <div class="pt-2">
@@ -110,7 +110,7 @@
 
             <!-- Go-to-bottom floating button (added) -->
             <button id="scroll-bottom-btn" title="Scroll to latest" class="hidden absolute left-1/2 transform -translate-x-1/2 bottom-24 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-2 shadow-lg focus:outline-none">
-                <i data-lucide="chevron-down" class="h-5 w-5"></i>
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-down-icon lucide-chevron-down"><path d="m6 9 6 6 6-6"/></svg>
             </button>
 
             <div id="chat-input-area" class="w-full p-4 relative">
