@@ -1,0 +1,1004 @@
+:root {
+    --md-primary-color: #3f51b5; /* Indigo */
+    --md-primary-color-dark: #303f9f;
+    --md-accent-color: #448aff; /* Blue A200 */
+    --md-text-primary-on-background: rgba(0,0,0,0.87);
+    --md-text-secondary-on-background: rgba(0,0,0,0.60);
+    --md-surface-color: #ffffff;
+    --md-background-color: #f5f5f5; /* Lighter gray for body */
+    --md-error-color: #f44336;
+    --md-border-color: #e0e0e0; /* Lighter border */
+    --md-elevation-1: 0 2px 2px 0 rgba(0,0,0,0.14), 0 3px 1px -2px rgba(0,0,0,0.12), 0 1px 5px 0 rgba(0,0,0,0.20);
+    --md-elevation-2: 0 4px 5px 0 rgba(0,0,0,0.14), 0 1px 10px 0 rgba(0,0,0,0.12), 0 2px 4px -1px rgba(0,0,0,0.20);
+    --md-elevation-3: 0 6px 10px 0 rgba(0,0,0,0.14), 0 1px 18px 0 rgba(0,0,0,0.12), 0 3px 5px -1px rgba(0,0,0,0.20);
+}
+
+body {
+    font-family: 'Roboto', sans-serif; /* Material Design uses Roboto */
+    background-color: var(--md-background-color);
+    color: var(--md-text-primary-on-background);
+    /* Prevent any horizontal overflow from expanding the page width */
+    max-width: 100vw;
+    overflow-x: hidden;
+}
+/* Import Roboto font (add to <head> if not already - this is a CSS import) */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+
+/* Custom scrollbar for chat history - slightly more subtle */
+#chat-history::-webkit-scrollbar {
+    width: 8px;
+}
+#chat-history::-webkit-scrollbar-track {
+    background: #eeeeee; /* Lighter track */
+    border-radius: 10px;
+}
+#chat-history::-webkit-scrollbar-thumb {
+    background: #bdbdbd; /* Grey for thumb */
+    border-radius: 10px;
+}
+#chat-history::-webkit-scrollbar-thumb:hover {
+    background: #9e9e9e; /* Darker grey on hover */
+}
+
+pre {
+    white-space: pre-wrap;      
+    word-wrap: break-word;      
+    background-color: #f0f0f0; /* Lighter background for code blocks */
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    box-shadow: var(--md-elevation-1);
+    border: 1px solid var(--md-border-color);
+}
+code.language-sql {
+    font-family: 'Roboto Mono', monospace; /* Consistent monospaced font */
+}
+
+
+/* Style for generated tables - Material inspired */
+.results-table {
+    max-height: 450px; /* Slightly increased height */
+    overflow-y: auto;
+    border: 1px solid var(--md-border-color);
+    border-radius: 8px; /* More rounded */
+    margin-top: 1rem; 
+    margin-bottom: 1.5rem; 
+    box-shadow: var(--md-elevation-1);
+}
+.results-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.results-table th, .results-table td {
+    border: none; /* Remove internal borders for cleaner look */
+    border-bottom: 1px solid var(--md-border-color); /* Horizontal lines only */
+    padding: 0.75rem 1rem; /* Increased padding */
+    text-align: left;
+    font-size: 0.9rem; 
+}
+.results-table th {
+    background-color: #fafafa; /* Very light grey for header */
+    font-weight: 500; /* Medium font weight */
+    color: var(--md-text-secondary-on-background);
+    position: sticky; 
+    top: 0;
+    z-index: 10;
+    border-bottom-width: 2px; /* Thicker bottom border for header */
+}
+.results-table tbody tr:nth-child(even) {
+    background-color: transparent; /* Remove alternating row color for cleaner look */
+}
+.results-table tbody tr:hover {
+    background-color: rgba(0,0,0,0.04); /* Subtle hover effect */
+}
+
+/* Config popup styles - Material Card */
+#config-popup {
+    position: fixed; /* Use fixed if it should overlay scroll */
+    top: 70px;
+    right: 20px;
+    z-index: 100; /* Ensure it's above other elements */
+    width: 320px; /* Slightly wider */
+    background-color: var(--md-surface-color);
+    border-radius: 8px; /* More pronounced rounding */
+    box-shadow: var(--md-elevation-3); /* Stronger shadow for popup */
+    opacity: 0;
+    transform: translateY(-20px) scale(0.98); /* Adjusted for smoother entry */
+    transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+    visibility: hidden;
+    transform-origin: top right;
+}
+#config-popup.visible {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    visibility: visible;
+    pointer-events: auto;
+}
+#config-popup label {
+    color: var(--md-text-secondary-on-background);
+    font-size: 0.8rem;
+}
+#config-popup input[type="text"], 
+#config-popup input[type="password"] {
+    border: none;
+    border-bottom: 1px solid var(--md-border-color);
+    border-radius: 0; /* Flat bottom border for Material inputs */
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    transition: border-color 0.2s ease-in-out;
+}
+#config-popup input[type="text"]:focus, 
+#config-popup input[type="password"]:focus {
+    border-bottom: 2px solid var(--md-primary-color);
+    box-shadow: none; /* Remove Tailwind focus shadow */
+}
+
+/* Styles for floating label inputs in config */
+.input-group {
+    position: relative;
+    margin-bottom: 1.5rem; /* ~24px, provides more space */
+}
+.input-group .icon {
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    transform: translateY(-50%);
+    color: var(--md-text-secondary-on-background);
+    pointer-events: none;
+    transition: color 0.2s ease;
+}
+/* When focused, also make the icon colored */
+.input-group input:focus ~ .icon {
+    color: var(--md-primary-color);
+}
+.input-group input {
+    width: 100%;
+    padding: 10px 40px 10px 40px; /* Top, Right, Bottom, Left */
+    background-color: transparent;
+    border: none;
+    border-bottom: 1px solid var(--md-border-color);
+    border-radius: 0;
+    font-size: 0.9rem;
+    color: var(--md-text-primary-on-background);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.input-group input:focus {
+    outline: none;
+    border-bottom-width: 2px;
+    border-bottom-color: var(--md-primary-color);
+    box-shadow: none; /* Override Tailwind focus shadow */
+}
+.input-group .floating-label {
+    position: absolute;
+    top: 10px;
+    left: 40px; /* Position next to icon */
+    font-size: 0.9rem;
+    color: var(--md-text-secondary-on-background);
+    pointer-events: none;
+    transition: all 0.2s ease-in-out;
+    background-color: var(--md-surface-color); /* To cover the line when floated */
+}
+/* State when input has content or is focused */
+.input-group input:not(:placeholder-shown) + .floating-label,
+.input-group input:focus + .floating-label {
+    top: -8px;
+    left: 10px;
+    font-size: 0.75rem;
+    color: var(--md-primary-color);
+    padding: 0 4px;
+}
+.input-group .toggle-password {
+    position: absolute;
+    top: 50%;
+    right: 5px;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--md-text-secondary-on-background);
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.input-group .toggle-password:hover {
+    background-color: rgba(0,0,0,0.08);
+    color: var(--md-text-primary-on-background);
+}
+
+/* Settings icon rotation animation - unchanged */
+@keyframes rotate-cw {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(180deg); }
+}
+@keyframes rotate-ccw {
+    0% { transform: rotate(180deg); }
+    100% { transform: rotate(0deg); }
+}
+.settings-icon-rotate-cw { animation: rotate-cw 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.settings-icon-rotate-ccw { animation: rotate-ccw 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+/* Toast notification styles - Materialized */
+#toast-container {
+    position: fixed;
+    bottom: 1rem; /* Position at bottom */
+    right: 1rem;   /* Usually bottom-left or bottom-center for toasts */
+    left: auto; /* to ensure right positioning */
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem; /* Increased gap */
+    max-width: 350px; /* Slightly wider toasts */
+}
+/* Ensure the scroll-to-bottom floating button stays above sticky table headers */
+#scroll-bottom-btn {
+    z-index: 200; /* Higher than .results-table th (z-index:10) */
+}
+.toast {
+    padding: 0.75rem 1.25rem; /* Adjust padding */
+    border-radius: 4px; /* Standard Material rounding */
+    box-shadow: var(--md-elevation-2);
+    display: flex;
+    align-items: center; /* Center align items vertically */
+    justify-content: space-between;
+    margin-bottom: 0; /* Gap is handled by container */
+    animation: toast-in-material 0.3s cubic-bezier(0, 0, 0.2, 1) forwards;
+    max-width: 100%;
+    background-color: #323232; /* Dark background for Material toasts */
+    color: #ffffff; /* White text */
+    border-left: none; /* Remove side border */
+}
+.toast-success { background-color: #4caf50; color: white; }
+.toast-warning { background-color: #ff9800; color: white; }
+.toast-error { background-color: var(--md-error-color); color: white; }
+.toast-info { background-color: var(--md-accent-color); color: white; }
+
+.toast-content {
+    flex: 1;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    white-space: pre-line;
+    font-size: 0.9rem;
+}
+.toast-close {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 1.25rem;
+    margin-left: 1rem;
+    padding: 0;
+    color: rgba(255, 255, 255, 0.7);
+    opacity: 1;
+    transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+.toast-close:hover {
+    color: rgba(255, 255, 255, 1);
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+@keyframes toast-in-material { /* Adjusted animation for bottom entry */
+    0% { transform: translateY(100%) scale(0.9); opacity: 0; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes toast-out-material {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(50%) scale(0.9); opacity: 0; }
+}
+.toast-remove { animation: toast-out-material 0.25s cubic-bezier(0.4, 0, 1, 1) forwards; }
+
+/* Autocomplete popup for slash commands - Materialized */
+#slash-command-popup {
+    left: 1rem; 
+    width: auto; 
+    background-color: var(--md-surface-color); /* Surface color */
+    color: var(--md-text-primary-on-background); /* Standard text color */
+    border-radius: 4px; 
+    overflow: hidden; 
+    box-shadow: var(--md-elevation-2); /* Material shadow */
+    transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+}
+#slash-command-popup div {
+    padding: 0.75rem 1rem; /* Consistent padding */
+    cursor: pointer;
+    text-align: left; /* Align text left for list items */
+    font-size: 0.9rem;
+    transition: background-color 0.15s ease-out;
+}
+#slash-command-popup div:hover {
+    background-color: rgba(0,0,0,0.08); /* Subtle hover for light theme */
+}
+
+/* Style for the /run command tag in input - Material Chip like */
+#run-command-tag {
+    flex-shrink: 0; 
+    border-radius: 16px; /* Pill shape for chips */
+    position: relative; 
+    overflow: visible; /* Allow button to be slightly outside if needed */
+    transition: background-color 0.2s ease-in-out;
+    margin-left: 0.5rem; 
+    margin-right: 0.5rem; 
+    padding: 0.25rem 0.75rem; /* Adjust padding */
+    font-size: 0.8rem;
+    box-shadow: var(--md-elevation-1);
+}
+/* Removed ::before and adjusted remove button directly */
+#remove-run-tag-btn {
+    opacity: 0.6; /* Slightly visible by default */
+    position: relative; /* Adjusted for inline display */
+    transform: none;
+    line-height: 1; 
+    transition: opacity 0.2s ease-in-out;
+    z-index: 10; 
+    padding: 0.1rem; /* Smaller padding */
+    margin-left: 0.35rem; /* Space from text */
+    border-radius: 50%; 
+    background-color: transparent;
+    color: inherit; /* Inherit color from parent */
+}
+ #run-command-tag:hover #remove-run-tag-btn {
+    opacity: 1;
+}
+#remove-run-tag-btn svg {
+     width: 0.75rem; /* Smaller icon */
+     height: 0.75rem;
+}
+
+/* Additional global styles for Material feel */
+button, input[type="submit"], input[type="button"] {
+    transition: box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    text-transform: uppercase; /* Material buttons are often uppercase */
+    letter-spacing: 0.05em;
+    font-weight: 500;
+}
+button:hover, input[type="submit"]:hover, input[type="button"]:hover {
+    box-shadow: var(--md-elevation-1); /* Subtle shadow on hover for primary buttons */
+}
+/* Specific button styles if needed */
+.button-primary {
+    background-color: var(--md-primary-color);
+    color: white;
+}
+.button-primary:hover {
+    background-color: var(--md-primary-color-dark);
+    box-shadow: var(--md-elevation-2);
+}
+
+/* Chat bubbles */
+#chat-history .p-3.rounded-lg { /* Target existing chat bubbles more specifically */
+    box-shadow: var(--md-elevation-1);
+    border: 1px solid transparent; /* Prepare for potential border changes */
+    margin-bottom: 0.75rem !important; /* Override Tailwind space-y */
+}
+#chat-history .p-3.rounded-lg.ml-auto { /* User messages */
+    background-color: var(--md-accent-color); /* Use accent for user */
+    color: white;
+     border-radius: 16px 16px 4px 16px; /* Slightly different bubble shape */
+}
+ #chat-history .p-3.rounded-lg.mr-auto { /* Assistant messages */
+    background-color: var(--md-surface-color);
+    color: var(--md-text-primary-on-background);
+    border: 1px solid var(--md-border-color);
+    border-radius: 16px 16px 16px 4px;
+}
+
+/* Prose adjustments for chat bubbles */
+#chat-history .prose {
+     font-size: 0.95rem; /* Slightly larger base font for chat */
+}
+ #chat-history .prose p {
+     margin-top: 0.5em;
+     margin-bottom: 0.5em;
+ }
+ #chat-history .prose pre { /* Style code blocks within chat messages */
+     margin-top: 0.75em;
+     margin-bottom: 0.75em;
+     background-color: rgba(0,0,0,0.05); /* Different background for nested code */
+     color: var(--md-text-primary-on-background); /* Ensure text is dark */
+     box-shadow: none;
+     border: 1px solid rgba(0,0,0,0.1);
+ }
+ #chat-history .ml-auto .prose pre { /* User message code blocks */
+     background-color: rgba(255,255,255,0.1);
+     border-color: rgba(255,255,255,0.2);
+ }
+
+/* Animations for schema icon toggle */
+@keyframes iconAnimateOut {
+    from { opacity: 1; transform: scale(1) rotate(0deg); }
+    to   { opacity: 0; transform: scale(0.6) rotate(-75deg); }
+}
+@keyframes iconAnimateIn {
+    from { opacity: 0; transform: scale(0.6) rotate(75deg); }
+    to   { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+/* ADDED: Keyframes for icon/spinner fade transitions */
+@keyframes fadeOut {
+    from { opacity: 1; transform: scale(1); }
+    to   { opacity: 0; transform: scale(0.8); }
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.8); }
+    to   { opacity: 1; transform: scale(1); }
+}
+.icon-fade-out {
+    animation: fadeOut 0.15s ease-out forwards;
+}
+.icon-fade-in {
+    animation: fadeIn 0.15s ease-out forwards;
+}
+
+.schema-icon-animate-out {
+    animation: iconAnimateOut 0.1s ease-in-out forwards;
+}
+.schema-icon-animate-in {
+    animation: iconAnimateIn 0.1s ease-in-out forwards;
+}
+
+@keyframes rotate360cw {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+#header-db-icon.icon-rotate-onload {
+    animation: rotate360cw 0.5s ease-in-out;
+}
+
+/* --- STYLES of SIDEBAR --- */
+#main-content-wrapper {
+    display: flex;
+    flex: 1;
+    overflow: hidden; /* Important for child flex items */
+    overflow-x: hidden; /* Prevent horizontal scroll glitches */
+    position: relative; /* ADDED: For absolute positioning of the schema sidebar */
+}
+
+main#chat-area { /* ADDED ID for clarity, was just main before */
+    flex: 1; /* Takes remaining space */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Handles its own scrolling */
+    position: relative; /* For absolute positioned children like slash command popup */
+    transition: margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* ADDED: Smooth margin adjustment */
+}
+
+/* --- Redesigned schema overlay to avoid mobile overflow --- */
+#schema-display {
+    width: 320px;
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background-color: var(--md-surface-color);
+    border-left: 1px solid var(--md-border-color);
+    overflow-y: auto;
+    padding: 1rem;
+    display: none; /* Hidden by default – prevents it from contributing to page width */
+    z-index: 50;
+}
+
+#schema-display.open {
+    display: block; /* Show when open */
+    animation: schemaSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes schemaSlideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+#schema-display-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem; /* Space below header */
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--md-border-color);
+}
+
+#schema-display-header h3 {
+    font-weight: 500; /* Material medium */
+    color: var(--md-text-primary-on-background);
+    font-size: 1rem;
+}
+
+
+.schema-item {
+    padding: 0.35rem 0.5rem; /* Reduced padding */
+    border-radius: 4px;
+    margin-bottom: 0.25rem; /* Spacing between items */
+    display: flex;
+    align-items: center;
+    font-size: 0.85rem; /* Slightly smaller font */
+    /* ADDED for gradual appearance */
+    opacity: 0;
+    transform: translateY(8px); /* Start slightly lower */
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out, background-color 0.15s ease-out; /* Combined transitions */
+}
+.schema-item.visible-item { /* ADDED class for visible state */
+    opacity: 1;
+    transform: translateY(0);
+}
+.schema-item:hover {
+    background-color: rgba(0,0,0,0.04);
+}
+.schema-item svg.lucide { /* Changed from i.lucide */
+    margin-right: 0.625rem; /* Adjusted from 1.2rem (testing value) to 10px */
+    width: 0.9rem; /* Icon size */
+    height: 0.9rem;
+    color: var(--md-primary-color); /* Use primary color for icons */
+    flex-shrink: 0;
+}
+
+.schema-database-item {
+    font-weight: 500; /* Medium weight for DB names */
+    color: var(--md-text-primary-on-background);
+    margin-top: 0.5rem;
+    /* ADDED: for clickability and icon styling */
+    cursor: pointer;
+}
+.schema-database-item i.lucide {
+     color: var(--md-primary-color-dark); /* Darker for DB icon */
+}
+
+.schema-table-item {
+    margin-left: 1.25rem; /* Indent tables */
+    color: var(--md-text-secondary-on-background);
+    /* ADDED: for clickability and icon styling */
+    cursor: pointer;
+}
+.schema-table-item strong {
+    color: var(--md-text-primary-on-background);
+    font-weight: 500;
+}
+.schema-table-item .toggle-icon {
+    margin-left: auto; /* Pushes icon to the right */
+    transition: transform 0.2s ease-in-out;
+}
+.schema-table-item.expanded .toggle-icon {
+    transform: rotate(-180deg); /* Rotates chevron-down to look like chevron-up */
+}
+
+.schema-columns-list {
+    margin-left: 2.5rem; /* Further indent columns */
+    font-size: 0.8rem;
+    color: var(--md-text-secondary-on-background);
+    padding-left: 0.5rem;
+    border-left: 1px dashed var(--md-border-color); /* Visual guide for columns */
+    /* ADDED: for smooth collapse/expand animation */
+    overflow: hidden;
+    max-height: 0; /* Initially collapsed */
+    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1); /* Increased from 0.3s */
+}
+.schema-column {
+    padding: 0.1rem 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* --- END NEW STYLES --- */
+
+/* ADDED: Wrapper for database content to animate its height */
+.database-content-wrapper {
+    overflow: hidden;
+    max-height: 0; /* Initially collapsed */
+    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1); /* Increased from 0.3s */
+}
+
+/* ADDED: Responsive behavior for schema sidebar on mobile */
+@media (max-width: 768px) {
+    #schema-display.open {
+        width: 100%;
+    }
+}
+
+/* ADDED: Responsive styles for header */
+@media (max-width: 560px) {
+    .btn-text {
+        display: none;
+    }
+    .header-btn {
+        padding-left: 0.5rem; /* 8px */
+        padding-right: 0.5rem; /* 8px */
+    }
+    .header-btn .btn-icon {
+        margin-right: 0 !important;
+    }
+    #header-link {
+        font-size: 1.125rem; /* from 1.25rem (text-xl) */
+    }
+}
+
+/* ADDED: Styles for header buttons to give them elevation */
+#config-toggle-btn, #schema-toggle-btn, #new-chat-btn {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#config-toggle-btn:hover, #schema-toggle-btn:hover, #new-chat-btn:hover {
+    --tw-shadow: var(--md-elevation-2);
+    --tw-shadow-colored: var(--md-elevation-2);
+    transform: translateY(-1px);
+}
+#config-toggle-btn:active, #schema-toggle-btn:active, #new-chat-btn:active {
+    --tw-shadow: var(--md-elevation-1);
+    --tw-shadow-colored: var(--md-elevation-1);
+    transform: translateY(0px);
+    transition-duration: 0.1s;
+}
+
+/* ADDED: Elevation for the main send button */
+#send-button {
+    box-shadow: var(--md-elevation-3);
+    transition: box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#send-button:hover {
+    box-shadow: var(--md-elevation-3);
+    transform: translateY(-1px);
+}
+
+#close-config-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    width: 1.75rem;
+    height: 1.75rem;
+    transition: background-color 0.2s ease-in-out;
+}
+#close-config-btn:hover {
+    background-color: rgba(0,0,0,0.08);
+}
+
+/* --- ADDED: Styles for the Run Query button wrapper --- */
+
+/* ADDED: Prevent input from overflowing its container */
+#input-wrapper,
+#message-input {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden; /* prevent them from causing horizontal expansion */
+}
+
+#message-input {
+    flex: 1 1 auto; /* ensure it can shrink */
+    width: 100%;
+    text-overflow: ellipsis; /* Prevent long text content from expanding the input */
+}
+
+/* Slide-out animation */
+@keyframes schemaSlideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+}
+
+#schema-display.closing {
+    display: block; /* keep it in flow while animating */
+    animation: schemaSlideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Styles for inline Run Query button */
+.run-query-btn {
+    flex: 0 0 auto;
+    margin-left: 0.5rem; /* Space from code block */
+    background-color: var(--md-accent-color);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    transition: background-color 0.15s ease-in-out;
+}
+.run-query-btn:hover {
+    background-color: var(--md-primary-color);
+}
+
+/* Copy button next to run button */
+.copy-query-btn {
+    flex: 0 0 auto;
+    margin-left: 0.25rem;
+    background-color: var(--md-border-color);
+    color: var(--md-text-primary-on-background);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
+}
+.copy-query-btn:hover {
+    background-color: var(--md-primary-color);
+    color: #fff;
+}
+
+/* --- ADDED: Initial View & Animation Styles --- */
+main#chat-area.initial-state {
+    justify-content: center;
+    overflow: hidden;
+}
+
+main#chat-area.initial-state #chat-history {
+    display: none;
+}
+
+#initial-view-content {
+    display: none; /* Hidden by default in final state */
+    text-align: center;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+main#chat-area.initial-state #initial-view-content {
+    display: block;
+    animation: fadeIn 0.8s ease-in-out;
+}
+
+main#chat-area.initial-state #chat-input-area {
+    width: 50%;
+    min-width: 320px; /* Ensure it's usable on smaller screens */
+    max-width: 700px;
+    margin: 1.5rem 0 0 0; /* Remove auto margin, which is not animatable */
+    left: 50%;
+    transform: translateX(-50%);
+    border-top: none;
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
+}
+
+main#chat-area.initial-state #input-wrapper {
+    border-radius: 9999px; /* Pill shape for initial input */
+    box-shadow: var(--md-elevation-3);
+    background-color: var(--md-surface-color);
+    min-height: 56px; /* ~h-14, increased height */
+    transition: min-height 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+main#chat-area.initial-state #chat-input-area #send-button {
+    background-color: var(--md-primary-color);
+    width: 50px; /* Larger send button */
+    height: 50px;
+    transition: width 0.3s ease, height 0.3s ease;
+}
+main#chat-area.initial-state #chat-input-area #send-button:hover {
+    background-color: var(--md-primary-color-dark);
+}
+
+main#chat-area.initial-state #terminal-btn {
+    width: 2.5rem; /* w-8 */
+    height: 2.5rem; /* h-8 */
+}
+
+#chat-input-area {
+    /* Smooth transition for all properties that will change */
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1), 
+                margin 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                padding 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                left 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    /* ADDED: establish positioning context for centering */
+    position: relative; 
+    left: 0;
+    transform: translateX(0);
+}
+
+#input-wrapper {
+     transition: border-radius 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                 box-shadow 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                 background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid var(--md-border-color); /* Always-visible subtle boundary */
+}
+
+@keyframes initial-view-fade-out {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-30px); }
+}
+
+main#chat-area:not(.initial-state) #initial-view-content {
+    animation: initial-view-fade-out 0.6s ease-out forwards;
+}
+
+main#chat-area:not(.initial-state) #chat-history {
+    animation: fadeIn 0.6s 0.4s ease-in-out forwards;
+    opacity: 0;
+}
+/* --- END ADDED STYLES --- */
+
+/* --- ADDED: Terminal Icon Button Style --- */
+#terminal-btn {
+    background-color: #3F51B5; /* bg-indigo-600 */
+    color: #ffffff; /* text-white */
+    border-radius: 9999px; /* rounded-full */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem; /* w-7 */
+    height: 1.75rem; /* h-7 */
+    margin-left: 0.5rem; /* ml-2 */
+    flex-shrink: 0;
+    transition: background-color 0.15s ease-in-out, width 0.3s ease, height 0.3s ease; /* Added width/height transition */
+}
+#terminal-btn:hover {
+    background-color: #4338ca; /* hover:bg-indigo-700 */
+}
+/* --- END ADDED STYLES --- */
+
+/* --- ADDED: Dark Mode Styles --- */
+.dark {
+    --md-primary-color: #9fa8da; /* Lighter Indigo */
+    --md-primary-color-dark: #7986cb;
+    /* Keep the same accent blue in both themes so components (e.g., run-query button, user bubbles) stay consistent */
+    --md-accent-color: #448aff; /* Blue A200 */
+    --md-text-primary-on-background: rgba(255, 255, 255, 0.87);
+    --md-text-secondary-on-background: rgba(255, 255, 255, 0.60);
+    --md-surface-color: #1e1e1e;
+    --md-background-color: #121212;
+    --md-border-color: #333;
+    --md-error-color: #ef5350;
+}
+
+/* Ensure user bubbles use the same accent colour and white text in both themes */
+.dark #chat-history .p-3.rounded-lg.ml-auto {
+    background-color: var(--md-accent-color);
+    color: #ffffff;
+}
+.dark #chat-history .ml-auto .prose pre {
+     background-color: rgba(0,0,0,0.2);
+     border-color: rgba(0,0,0,0.3);
+     color: white;
+}
+/* Allow Prism token colours to show */
+.dark code.language-sql {
+    color: inherit;
+}
+.dark #chat-history .p-3.rounded-lg.mr-auto { /* Assistant messages in dark mode */
+     border-color: var(--md-border-color);
+}
+
+.dark #greeting, .dark #welcome-text {
+    color: var(--md-text-primary-on-background);
+}
+
+.dark #send-button {
+    background-color: #3F51B5 !important; /* Match terminal button background */
+}
+.dark #send-button:hover {
+    background-color: #4338ca !important; /* Match terminal button hover */
+}
+
+#dark-mode-icon-container {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dark #header-link,
+.dark .header-btn {
+     color: #e8eaf6; /* A very light indigo for text on dark header */
+     background-color: #283593; /* A darker indigo for dark mode button background */
+}
+.dark .header-btn:hover {
+     background-color: #3949ab;
+}
+.dark .header-btn .btn-icon,
+.dark #schema-db-icon svg,
+.dark #schema-up-icon svg {
+    color: #e8eaf6 !important; /* Override inline styles if any */
+}
+/* --- END ADDED STYLES --- */
+
+.dark .header-btn:hover {
+     background-color: #3949ab;
+}
+
+.dark #header-link {
+    background-color: transparent;
+}
+
+.dark .header-btn .btn-icon,
+.dark #schema-db-icon svg,
+.dark #schema-up-icon svg {
+    color: #e8eaf6 !important; /* Override inline styles if any */
+}
+
+.dark #config-popup h3 {
+    color: var(--md-text-primary-on-background);
+}
+
+/* --- ADDED: Fix for browser autofill styles (v2) --- */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    -webkit-transition-delay: 9999s;
+    transition-delay: 9999s;
+}
+/* --- END: Fix for browser autofill styles --- */
+
+/* --- ADDED: Ripple Effect --- */
+.ripple-container {
+    position: relative;
+    overflow: hidden;
+}
+
+span.ripple {
+    position: absolute;
+    border-radius: 50%;
+    transform: scale(0);
+    animation: ripple-animation 600ms linear;
+    /* Light ripple for dark buttons. Effect is only triggered in dark mode via JS. */
+    background-color: rgba(255, 255, 255, 0.25); 
+}
+
+@keyframes ripple-animation {
+    to {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+/* --- END: Ripple Effect --- */
+
+/* --- ADDED: Theme Toggle Ripple --- */
+.theme-toggle-ripple {
+    position: fixed;
+    border-radius: 50%;
+    transform: scale(0);
+    pointer-events: none;
+    z-index: 9999;
+    animation: theme-toggle-ripple-animation 0.6s ease-out forwards;
+}
+
+@keyframes theme-toggle-ripple-animation {
+    to {
+        transform: scale(1);
+        opacity: 0;
+    }
+}
+/* --- END: Theme Toggle Ripple --- */
+
+/* --- ADDED: Dark mode enhancements for table headers, markdown headings, and inline code --- */
+.dark .results-table {
+    border-color: var(--md-border-color);
+}
+.dark .results-table th {
+    background-color: var(--md-surface-color);
+    color: var(--md-text-secondary-on-background);
+}
+.dark .results-table td {
+    color: var(--md-text-primary-on-background);
+}
+.dark .results-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.dark #chat-history .prose h1,
+.dark #chat-history .prose h2,
+.dark #chat-history .prose h3,
+.dark #chat-history .prose h4,
+.dark #chat-history .prose h5,
+.dark #chat-history .prose h6,
+.dark #chat-history .prose strong {
+    color: var(--md-text-primary-on-background);
+}
+
+.dark #chat-history .prose code {
+    background-color: rgba(255, 255, 255, 0.12);
+    color: var(--md-text-primary-on-background);
+}
+/* --- END ADDED --- */
+
+/* Stronger contrast border in dark mode */
+.dark #input-wrapper {
+    border-color: rgba(255, 255, 255, 0.35);
+}
