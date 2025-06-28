@@ -800,6 +800,7 @@
              transition: border-radius 0.8s cubic-bezier(0.4, 0, 0.2, 1),
                          box-shadow 0.8s cubic-bezier(0.4, 0, 0.2, 1),
                          background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid var(--md-border-color); /* Always-visible subtle boundary */
         }
 
         @keyframes initial-view-fade-out {
@@ -840,7 +841,8 @@
         .dark {
             --md-primary-color: #9fa8da; /* Lighter Indigo */
             --md-primary-color-dark: #7986cb;
-            --md-accent-color: #82b1ff;
+            /* Keep the same accent blue in both themes so components (e.g., run-query button, user bubbles) stay consistent */
+            --md-accent-color: #448aff; /* Blue A200 */
             --md-text-primary-on-background: rgba(255, 255, 255, 0.87);
             --md-text-secondary-on-background: rgba(255, 255, 255, 0.60);
             --md-surface-color: #1e1e1e;
@@ -849,9 +851,10 @@
             --md-error-color: #ef5350;
         }
 
-        .dark #chat-history .p-3.rounded-lg.ml-auto { /* User messages in dark mode */
+        /* Ensure user bubbles use the same accent colour and white text in both themes */
+        .dark #chat-history .p-3.rounded-lg.ml-auto {
             background-color: var(--md-accent-color);
-            color: #121212; /* Dark text on light accent color for readability */
+            color: #ffffff;
         }
         .dark #chat-history .ml-auto .prose pre {
              background-color: rgba(0,0,0,0.2);
@@ -965,6 +968,41 @@
             }
         }
         /* --- END: Theme Toggle Ripple --- */
+
+        /* --- ADDED: Dark mode enhancements for table headers, markdown headings, and inline code --- */
+        .dark .results-table {
+            border-color: var(--md-border-color);
+        }
+        .dark .results-table th {
+            background-color: var(--md-surface-color);
+            color: var(--md-text-secondary-on-background);
+        }
+        .dark .results-table td {
+            color: var(--md-text-primary-on-background);
+        }
+        .dark .results-table tbody tr:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .dark #chat-history .prose h1,
+        .dark #chat-history .prose h2,
+        .dark #chat-history .prose h3,
+        .dark #chat-history .prose h4,
+        .dark #chat-history .prose h5,
+        .dark #chat-history .prose h6 {
+            color: var(--md-text-primary-on-background);
+        }
+
+        .dark #chat-history .prose code {
+            background-color: rgba(255, 255, 255, 0.12);
+            color: var(--md-text-primary-on-background);
+        }
+        /* --- END ADDED --- */
+
+        /* Stronger contrast border in dark mode */
+        .dark #input-wrapper {
+            border-color: rgba(255, 255, 255, 0.35);
+        }
     </style>
     <script>
         // === END ADDED ===
