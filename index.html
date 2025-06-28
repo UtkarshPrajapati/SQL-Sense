@@ -727,6 +727,25 @@
             background-color: var(--md-primary-color);
         }
 
+        /* Copy button next to run button */
+        .copy-query-btn {
+            flex: 0 0 auto;
+            margin-left: 0.25rem;
+            background-color: var(--md-border-color);
+            color: var(--md-text-primary-on-background);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            display: inline-flex;
+            align-items: center;
+            transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
+        }
+        .copy-query-btn:hover {
+            background-color: var(--md-primary-color);
+            color: #fff;
+        }
+
         /* --- ADDED: Initial View & Animation Styles --- */
         main#chat-area.initial-state {
             justify-content: center;
@@ -1310,12 +1329,27 @@
                             messageInput.focus();
                         });
 
+                        // Copy button
+                        const copyButton = document.createElement('button');
+                        copyButton.className = 'copy-query-btn';
+                        copyButton.innerHTML = `<i data-lucide="copy" class="h-3 w-3 inline-block mr-1 -ml-1"></i> Copy`;
+
+                        copyButton.addEventListener('click', () => {
+                            try {
+                                navigator.clipboard.writeText(query);
+                                showToast('Query copied to clipboard!', 'success', 2000);
+                            } catch (err) {
+                                showToast('Failed to copy query', 'error', 3000);
+                            }
+                        });
+
                         // Replace the original <pre> with the wrapper containing the <pre> and the button
                         if(preElement.parentNode) {
                             preElement.parentNode.replaceChild(wrapper, preElement);
                         }
                         wrapper.appendChild(preElement);
                         wrapper.appendChild(runButton);
+                        wrapper.appendChild(copyButton);
                     }
                 });
                 // After adding new icons via innerHTML, we must re-run lucide.
