@@ -9,6 +9,9 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+    <!-- PrismJS for syntax highlighting -->
+    <link rel="stylesheet" href="/static/prism.css" />
+    <script src="/static/prism.js"></script>
     <style>
         :root {
             --md-primary-color: #3f51b5; /* Indigo */
@@ -861,8 +864,9 @@
              border-color: rgba(0,0,0,0.3);
              color: white;
         }
+        /* Allow Prism token colours to show */
         .dark code.language-sql {
-             color: white;
+            color: inherit;
         }
         .dark #chat-history .p-3.rounded-lg.mr-auto { /* Assistant messages in dark mode */
              border-color: var(--md-border-color);
@@ -989,7 +993,8 @@
         .dark #chat-history .prose h3,
         .dark #chat-history .prose h4,
         .dark #chat-history .prose h5,
-        .dark #chat-history .prose h6 {
+        .dark #chat-history .prose h6,
+        .dark #chat-history .prose strong {
             color: var(--md-text-primary-on-background);
         }
 
@@ -1327,6 +1332,10 @@
             // ADDED: Call lucide.createIcons() AFTER the message is appended to the DOM
             if (sender === 'assistant') {
                 lucide.createIcons();
+            }
+            // Highlight any new code blocks with Prism
+            if (window.Prism && typeof Prism.highlightAllUnder === 'function') {
+                Prism.highlightAllUnder(messageDiv);
             }
         }
 
