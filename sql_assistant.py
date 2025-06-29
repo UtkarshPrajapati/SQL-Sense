@@ -20,6 +20,7 @@ from fastapi_sessions.backends.implementations import InMemoryBackend
 from fastapi_sessions.session_verifier import SessionVerifier
 from contextlib import asynccontextmanager
 import re
+from starlette.staticfiles import StaticFiles
 
 # --- Configuration ---
 load_dotenv() # Load environment variables from .env file
@@ -836,6 +837,18 @@ class ConfirmedExecutionRequest(BaseModel):
     query: str
 
 
+# --- Static Files with Caching ---
+class CachingStaticFiles(StaticFiles):
+    def __init__(self, *args, max_age: int = 31536000, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.max_age = max_age
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code == 200:
+            response.headers.setdefault("Cache-Control", f"public, max-age={self.max_age}, immutable")
+        return response
+
 # --- FastAPI Application ---
 
 @asynccontextmanager
@@ -861,7 +874,8 @@ async def lifespan(app: FastAPI):
     # No shutdown logic needed for now
 
 app = FastAPI(title="SQL Assistant with Gemini", lifespan=lifespan)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Mount static files using the caching-enabled subclass so that browsers can cache assets effectively.
+app.mount("/static", CachingStaticFiles(directory="static", max_age=31536000), name="static")
 templates = Jinja2Templates(directory=".") # Expect index.html in the root directory
 
 @app.get("/", response_class=HTMLResponse)
